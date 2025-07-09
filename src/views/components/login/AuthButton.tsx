@@ -20,7 +20,7 @@ export default function AuthButton() {
   if (session) {
     return (
       <div className="flex items-center gap-2">
-        <Link href="/fundador" passHref>
+        <Link href="/founder" passHref>
           <Button variant="outline" size="sm" className="flex items-center gap-2 text-xs">
             <User size={16} />
             <span>{session.user?.name}</span>
@@ -44,7 +44,7 @@ export default function AuthButton() {
 
   return (
     <Button
-      onClick={() => signIn("google", { callbackUrl: "/fundador" })}
+      onClick={() => signIn("google", { callbackUrl: "/founder" })}
       className="flex items-center gap-2"
     >
       <User size={16} />
