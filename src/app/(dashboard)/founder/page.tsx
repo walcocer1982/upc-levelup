@@ -2,7 +2,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import Cabecera from "@/views/components/ui/Header";
+import Cabecera from "@/views/components/interface/Header";
 
 export default function FundadorPage() {
   const { status, data } = useSession();
