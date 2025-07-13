@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -32,3 +33,17 @@ export default function RootLayout({
     </html>
   );
 }
+=======
+import { Providers } from "@/views/components/shared/providers";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="es">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+>>>>>>> 49542500f51da8175182099be801915c13fbad0e
