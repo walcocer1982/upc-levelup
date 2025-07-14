@@ -1,9 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { DefaultSession } from "next-auth";
-import { PrismaClient } from "@/generated/prisma";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma"; // Cambiar esta línea
 
 // Extender tipos para Auth.js v5
 declare module "next-auth" {
@@ -39,9 +37,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user && account) {
         try {
           // Verificar si el usuario existe en la base de datos
-          const dbUser = await prisma.user.findUnique({
+          let dbUser = await prisma.user.findUnique({
             where: { email: user.email! },
           });
+
+          // Si no existe el usuario, crearlo automáticamente
+          if (!dbUser) {
+            dbUser = await prisma.user.create({
+              data: {
+                email: user.email!,
+                nombres: user.name?.split(" ")[0] || null,
+                apellidos: user.name?.split(" ").slice(1).join(" ") || null,
+                role: user.email === "m.limaco0191@gmail.com" ? "admin" : "usuario",
+                haAceptadoPolitica: false,
+                isRegistered: false,
+              },
+            });
+            console.log("Nuevo usuario creado:", dbUser.email);
+          }
           
           // Determinar si está registrado
           const isRegistered = !!dbUser?.isRegistered;
@@ -57,7 +70,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           console.log("Token generado:", token); // Depuración
         } catch (error) {
-          console.error("Error verificando usuario:", error);
+          console.error("Error verificando/creando usuario:", error);
           // Si hay error, establecer valores predeterminados
           token.role = user.email === "m.limaco0191@gmail.com" ? "admin" : "usuario";
           token.isRegistered = false;
@@ -87,20 +100,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account }) {
       try {
         let dbUser;
+        let isNewUser = false;
         
         try {
           // Buscar usuario en la base de datos
           dbUser = await prisma.user.findUnique({
             where: { email: user.email! },
           });
+
+          // Si no existe, se creará en el callback jwt, pero marcamos como nuevo
+          if (!dbUser) {
+            isNewUser = true;
+          }
         } catch (dbError) {
           console.error("Error buscando usuario en DB:", dbError);
         }
 
         // Determinar si es login o registro inicial
-        const action = dbUser ? 'login' : 'signup';
+        const action = isNewUser ? 'signup' : 'login';
         
         try {
+          // Si es un usuario nuevo, esperamos un poco para que se cree en jwt callback
+          if (isNewUser) {
+            // Pequeña espera para asegurar que el usuario se cree en jwt callback
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Buscar nuevamente el usuario recién creado
+            dbUser = await prisma.user.findUnique({
+              where: { email: user.email! },
+            });
+          }
+
           // Registrar evento de sesión
           await prisma.sessionLog.create({
             data: {
