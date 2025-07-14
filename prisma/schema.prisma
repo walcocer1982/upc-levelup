@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -13,3 +10,238 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  nombres            String?
+  apellidos          String?
+  dni                String?  @unique
+  telefono           String?
+  correoLaureate     String?
+  linkedin           String?
+  biografia          String?
+  role               Role     @default(usuario)
+  haAceptadoPolitica Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  isRegistered       Boolean  @default(false)
+
+  startups             Member[]
+  convocatoriasCreadas Application[]  @relation("ConvocatoriaCreador")
+  sessionLogs          SessionLog[]
+  comunicaciones       Comunicacion[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model SessionLog {
+  id        String   @id @default(cuid())
+  userId    String
+  email     String?
+  action    String
+  provider  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("session_logs")
+}
+
+enum Role {
+  usuario
+  admin
+}
+
+model Startup {
+  id             String   @id @default(cuid())
+  nombre         String
+  razonSocial    String?
+  ruc            String?
+  fechaFundacion DateTime
+  categoria      String
+  paginaWeb      String?
+  descripcion    String
+  etapa          String
+  origen         String
+  videoPitchUrl  String?
+
+  members          Member[]
+  impact           Impact?
+  metrics          Metrics?
+  applicationForms ApplicationForm[]
+  postulaciones    Applicant[]
+  comunicaciones   Comunicacion[]
+
+  @@index([nombre])
+  @@index([etapa])
+  @@index([categoria])
+  @@map("startups")
+}
+
+model Impact {
+  id                    String @id @default(cuid())
+  startupId             String @unique
+  casoReal              String
+  abordajeProblema      String
+  consecuencias         String
+  afectados             String
+  tamanoMercado         String
+  potencialesClientes   String
+  interesPagar          String
+  segmentoInteres       String
+  estrategiaAdquisicion String
+  costoAdquisicion      String
+  facilidadExpansion    String
+  escalabilidad         String
+  trayectoria           String
+  experiencia           String
+  roles                 String
+  desafios              String
+
+  startup Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+
+  @@index([startupId])
+  @@map("impacts")
+}
+
+model Metrics {
+  id               String  @id @default(cuid())
+  startupId        String  @unique
+  ventas           Boolean
+  montoVentas      Int?
+  monedaVentas     String?
+  tienePiloto      Boolean
+  enlacePiloto     String?
+  lugarAplicacion  String?
+  tecnologia       String?
+  tieneAreaTech    Boolean
+  inversionExterna Boolean
+  montoInversion   Int?
+  monedaInversion  String?
+
+  startup Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+
+  @@index([startupId])
+  @@map("metrics")
+}
+
+model Member {
+  id        String  @id @default(cuid())
+  nombres   String
+  apellidos String
+  dni       String
+  email     String
+  telefono  String
+  linkedin  String?
+  biografia String?
+  rol       String
+  aceptado  Boolean @default(false)
+
+  startupId String
+  startup   Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+
+  user User? @relation(fields: [dni], references: [dni])
+
+  @@index([startupId])
+  @@index([dni])
+  @@index([email])
+  @@map("members")
+}
+
+model Application {
+  id          String           @id @default(cuid())
+  tipo        TipoConvocatoria
+  fechaInicio DateTime
+  fechaFin    DateTime
+  creadoPorId String
+
+  creadoPor     User             @relation("ConvocatoriaCreador", fields: [creadoPorId], references: [id])
+  formularios   ApplicationForm[]
+  postulaciones Applicant[]
+
+  @@index([tipo])
+  @@index([fechaInicio, fechaFin])
+  @@index([creadoPorId])
+  @@map("applications")
+}
+
+enum TipoConvocatoria {
+  Inqubalab
+  Aceleracion
+}
+
+model ApplicationForm {
+  id                  String   @id @default(cuid())
+  startupId           String
+  convocatoriaId      String
+  solucion            String
+  razon               String
+  necesidades         String[]
+  participacionPasada Boolean
+  programaPasado      String?
+  aprendizaje         String?
+  startupNombre       String
+
+  startup      Startup     @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  convocatoria Application @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
+
+  @@index([startupId])
+  @@index([convocatoriaId])
+  @@map("application_forms")
+}
+
+model Applicant {
+  id                String            @id @default(cuid())
+  startupId         String
+  convocatoriaId    String
+  estado            EstadoPostulacion
+  feedbackEvaluador String?
+  feedbackIA        String?
+  fecha             DateTime          @default(now())
+  locked            Boolean           @default(false)
+
+  startup      Startup     @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  convocatoria Application @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
+
+  @@unique([startupId, convocatoriaId])
+  @@index([estado])
+  @@index([fecha])
+  @@map("applicants")
+}
+
+enum EstadoPostulacion {
+  postulado
+  aprobado
+  desaprobado
+  enRevision
+}
+
+model Comunicacion {
+  id        String           @id @default(cuid())
+  userId    String
+  startupId String
+  asunto    String
+  cuerpo    String
+  fecha     DateTime         @default(now())
+  tipo      TipoComunicacion
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startup Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startupId])
+  @@index([fecha])
+  @@index([tipo])
+  @@map("comunicaciones")
+}
+
+enum TipoComunicacion {
+  notificacion
+  recordatorio
+  estado_postulacion
+} 
