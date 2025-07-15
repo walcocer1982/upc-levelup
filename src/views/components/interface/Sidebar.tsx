@@ -1,12 +1,12 @@
 "use client";
 
+import { useUserData } from '@/hooks/useUserData';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   User, 
   Building2, 
   Calendar, 
-  Mail, 
   ChevronRight,
   Menu,
   X
@@ -19,19 +19,21 @@ import { useMediaQuery } from "@/hooks/general/useMediaQuery";
 interface SidebarProps {
   onSelectProfile: () => void;
   onSelectStartups: () => void;
-  onSelectApplications: () => void;  // Nueva prop para manejar las aplicaciones
+  onSelectApplications: () => void;
   activeView?: string;
 }
 
-export default function Sidebar({ 
-  onSelectProfile, 
+export default function Sidebar({
+  onSelectProfile,
   onSelectStartups,
-  onSelectApplications,  // Nuevo parámetro
+  onSelectApplications,
   activeView = "startups"
 }: SidebarProps) {
+  const { userData, loading } = useUserData();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
+
   
   // Cerrar el menú móvil al cambiar de ruta
   useEffect(() => {
@@ -54,8 +56,8 @@ export default function Sidebar({
     {
       icon: <Calendar size={20} />,
       label: "Convocatorias",
-      onClick: onSelectApplications,  // Cambiado de href a onClick
-      active: activeView === "applications"  // Actualizado para usar activeView
+      onClick: onSelectApplications,
+      active: activeView === "applications"
     }
   ];
 
@@ -92,44 +94,46 @@ export default function Sidebar({
             <div className="w-20 h-20 bg-muted rounded-full mx-auto mb-2 flex items-center justify-center">
               <User size={32} className="text-muted-foreground" />
             </div>
-            <h2 className="font-medium">Usuario</h2>
-            <p className="text-sm text-muted-foreground">usuario@ejemplo.com</p>
+            
+            {/* Usuario info con datos dinámicos */}
+            {loading ? (
+              <div className="animate-pulse">
+                <div className="h-4 bg-muted rounded w-32 mb-2 mx-auto"></div>
+                <div className="h-3 bg-muted rounded w-24 mx-auto"></div>
+              </div>
+            ) : (
+              <>
+                <h2 className="font-medium">
+                  {userData?.nombres || userData?.apellidos 
+                    ? `${userData.nombres || ''} ${userData.apellidos || ''}`.trim()
+                    : 'Usuario'
+                  }
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {userData?.email || 'usuario@ejemplo.com'}
+                </p>
+              </>
+            )}
           </div>
           
           <nav className="flex-1">
             <ul className="space-y-2">
               {menuItems.map((item, index) => (
                 <li key={index}>
-                  {item.href ? (
-                    <Link 
-                      href={item.href}
-                      className={cn(
-                        "flex items-center w-full px-3 py-2 rounded-md transition-colors text-sm font-medium",
-                        item.active 
-                          ? "bg-muted text-primary font-medium"
-                          : "text-foreground hover:bg-muted/50"
-                      )}
-                    >
-                      <span className="mr-2">{item.icon}</span>
-                      <span>{item.label}</span>
-                      {item.active && <ChevronRight size={16} className="ml-auto" />}
-                    </Link>
-                  ) : (
-                    <Button
-                      variant="ghost" 
-                      className={cn(
-                        "w-full justify-start text-sm font-medium",
-                        item.active 
-                          ? "bg-muted text-primary font-medium"
-                          : "text-foreground hover:bg-muted/50"
-                      )}
-                      onClick={item.onClick}
-                    >
-                      <span className="mr-2">{item.icon}</span>
-                      <span>{item.label}</span>
-                      {item.active && <ChevronRight size={16} className="ml-auto" />}
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost" 
+                    className={cn(
+                      "w-full justify-start text-sm font-medium",
+                      item.active 
+                        ? "bg-muted text-primary font-medium"
+                        : "text-foreground hover:bg-muted/50"
+                    )}
+                    onClick={item.onClick}
+                  >
+                    <span className="mr-2">{item.icon}</span>
+                    <span>{item.label}</span>
+                    {item.active && <ChevronRight size={16} className="ml-auto" />}
+                  </Button>
                 </li>
               ))}
             </ul>

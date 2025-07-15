@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -12,25 +9,24 @@ datasource db {
 }
 
 model User {
-  id                 String   @id @default(cuid())
-  email              String   @unique
-  nombres            String?
-  apellidos          String?
-  dni                String?  @unique
-  telefono           String?
-  correoLaureate     String?
-  linkedin           String?
-  biografia          String?
-  role               Role     @default(usuario)
-  haAceptadoPolitica Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  isRegistered       Boolean  @default(false)
-
-  startups             Member[]
+  id                   String         @id @default(cuid())
+  email                String         @unique
+  nombres              String?
+  apellidos            String?
+  dni                  String?        @unique
+  telefono             String?
+  correoLaureate       String?
+  linkedin             String?
+  biografia            String?
+  role                 Role           @default(usuario)
+  haAceptadoPolitica   Boolean        @default(false)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  isRegistered         Boolean        @default(false)
   convocatoriasCreadas Application[]  @relation("ConvocatoriaCreador")
-  sessionLogs          SessionLog[]
   comunicaciones       Comunicacion[]
+  startups             Member[]
+  sessionLogs          SessionLog[]
 
   @@index([email])
   @@index([role])
@@ -44,38 +40,31 @@ model SessionLog {
   action    String
   provider  String
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
   @@map("session_logs")
 }
 
-enum Role {
-  usuario
-  admin
-}
-
 model Startup {
-  id             String   @id @default(cuid())
-  nombre         String
-  razonSocial    String?
-  ruc            String?
-  fechaFundacion DateTime
-  categoria      String
-  paginaWeb      String?
-  descripcion    String
-  etapa          String
-  origen         String
-  videoPitchUrl  String?
-
-  members          Member[]
-  impact           Impact?
-  metrics          Metrics?
-  applicationForms ApplicationForm[]
+  id               String            @id @default(cuid())
+  nombre           String
+  razonSocial      String?
+  ruc              String?
+  fechaFundacion   DateTime
+  categoria        String
+  paginaWeb        String?
+  descripcion      String
+  etapa            String
+  origen           String
+  videoPitchUrl    String?
   postulaciones    Applicant[]
+  applicationForms ApplicationForm[]
   comunicaciones   Comunicacion[]
+  impact           Impact?
+  members          Member[]
+  metrics          Metrics?
 
   @@index([nombre])
   @@index([etapa])
@@ -84,8 +73,8 @@ model Startup {
 }
 
 model Impact {
-  id                    String @id @default(cuid())
-  startupId             String @unique
+  id                    String  @id @default(cuid())
+  startupId             String  @unique
   casoReal              String
   abordajeProblema      String
   consecuencias         String
@@ -102,8 +91,7 @@ model Impact {
   experiencia           String
   roles                 String
   desafios              String
-
-  startup Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  startup               Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
 
   @@index([startupId])
   @@map("impacts")
@@ -123,8 +111,7 @@ model Metrics {
   inversionExterna Boolean
   montoInversion   Int?
   monedaInversion  String?
-
-  startup Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  startup          Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
 
   @@index([startupId])
   @@map("metrics")
@@ -141,12 +128,11 @@ model Member {
   biografia String?
   rol       String
   aceptado  Boolean @default(false)
-
   startupId String
+  user      User    @relation(fields: [dni], references: [dni])
   startup   Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
 
-  user User? @relation(fields: [dni], references: [dni])
-
+  @@unique([dni, startupId])
   @@index([startupId])
   @@index([dni])
   @@index([email])
@@ -154,15 +140,14 @@ model Member {
 }
 
 model Application {
-  id          String           @id @default(cuid())
-  tipo        TipoConvocatoria
-  fechaInicio DateTime
-  fechaFin    DateTime
-  creadoPorId String
-
-  creadoPor     User             @relation("ConvocatoriaCreador", fields: [creadoPorId], references: [id])
-  formularios   ApplicationForm[]
+  id            String            @id @default(cuid())
+  tipo          TipoConvocatoria
+  fechaInicio   DateTime
+  fechaFin      DateTime
+  creadoPorId   String
   postulaciones Applicant[]
+  formularios   ApplicationForm[]
+  creadoPor     User              @relation("ConvocatoriaCreador", fields: [creadoPorId], references: [id])
 
   @@index([tipo])
   @@index([fechaInicio, fechaFin])
@@ -170,13 +155,8 @@ model Application {
   @@map("applications")
 }
 
-enum TipoConvocatoria {
-  Inqubalab
-  Aceleracion
-}
-
 model ApplicationForm {
-  id                  String   @id @default(cuid())
+  id                  String      @id @default(cuid())
   startupId           String
   convocatoriaId      String
   solucion            String
@@ -186,9 +166,8 @@ model ApplicationForm {
   programaPasado      String?
   aprendizaje         String?
   startupNombre       String
-
-  startup      Startup     @relation(fields: [startupId], references: [id], onDelete: Cascade)
-  convocatoria Application @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
+  convocatoria        Application @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
+  startup             Startup     @relation(fields: [startupId], references: [id], onDelete: Cascade)
 
   @@index([startupId])
   @@index([convocatoriaId])
@@ -204,21 +183,13 @@ model Applicant {
   feedbackIA        String?
   fecha             DateTime          @default(now())
   locked            Boolean           @default(false)
-
-  startup      Startup     @relation(fields: [startupId], references: [id], onDelete: Cascade)
-  convocatoria Application @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
+  convocatoria      Application       @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
+  startup           Startup           @relation(fields: [startupId], references: [id], onDelete: Cascade)
 
   @@unique([startupId, convocatoriaId])
   @@index([estado])
   @@index([fecha])
   @@map("applicants")
-}
-
-enum EstadoPostulacion {
-  postulado
-  aprobado
-  desaprobado
-  enRevision
 }
 
 model Comunicacion {
@@ -229,9 +200,8 @@ model Comunicacion {
   cuerpo    String
   fecha     DateTime         @default(now())
   tipo      TipoComunicacion
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  startup Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  startup   Startup          @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([startupId])
@@ -240,8 +210,25 @@ model Comunicacion {
   @@map("comunicaciones")
 }
 
+enum Role {
+  usuario
+  admin
+}
+
+enum TipoConvocatoria {
+  Inqubalab
+  Aceleracion
+}
+
+enum EstadoPostulacion {
+  postulado
+  aprobado
+  desaprobado
+  enRevision
+}
+
 enum TipoComunicacion {
   notificacion
   recordatorio
   estado_postulacion
-} 
+}
