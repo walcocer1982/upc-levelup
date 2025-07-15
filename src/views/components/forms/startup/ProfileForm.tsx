@@ -24,7 +24,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 const startupSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
@@ -54,16 +55,18 @@ interface StartupProfileFormProps {
   startupData?: Partial<StartupFormValues>;
 }
 
-export default function StartupProfileForm({ 
+export default function StartupProfileForm({
   onSubmit,
   startupData
 }: StartupProfileFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [charCount, setCharCount] = useState(startupData?.descripcion?.length || 0);
-  
+  const [charCount, setCharCount] = useState(0);
+  const [loadingData, setLoadingData] = useState(true);
+  const [isNewStartup, setIsNewStartup] = useState(true);
+
   const form = useForm<StartupFormValues>({
     resolver: zodResolver(startupSchema),
-    defaultValues: startupData || {
+    defaultValues: {
       nombre: "",
       razonSocial: "",
       ruc: "",
@@ -77,14 +80,138 @@ export default function StartupProfileForm({
     },
   });
 
-  const handleSubmit = (data: StartupFormValues) => {
+  // Cargar datos de la startup al montar el componente
+  useEffect(() => {
+    const loadStartupData = async () => {
+      try {
+        console.log("🔍 Cargando datos de la startup...");
+
+        const response = await fetch('/api/startups/profile', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ Datos de startup cargados:", data);
+
+          if (data.startup && data.isOwner) {
+            // Mapear datos del endpoint al formato del formulario
+            const formData = {
+              nombre: data.startup.nombre || "",
+              razonSocial: data.startup.razonSocial || "",
+              ruc: data.startup.ruc || "",
+              fechaFundacion: data.startup.fechaFundacion ?
+                new Date(data.startup.fechaFundacion).toISOString().split('T')[0] : "",
+              categoria: data.startup.categoria || "",
+              web: data.startup.paginaWeb || "",
+              descripcion: data.startup.descripcion || "",
+              etapa: data.startup.etapa || undefined,
+              origen: data.startup.origen || undefined,
+              videoPitch: data.startup.videoPitchUrl || "",
+            };
+
+            console.log("📝 Datos preparados para el formulario:", formData);
+
+            // Actualizar el formulario con los datos de la startup
+            form.reset(formData);
+            setCharCount(formData.descripcion.length);
+            setIsNewStartup(false);
+          } else {
+            console.log("ℹ️ No se encontró startup existente - modo creación");
+            setIsNewStartup(true);
+          }
+        } else {
+          console.log("❌ Error al cargar datos de startup:", response.status);
+        }
+      } catch (error) {
+        console.error("💥 Error cargando datos de startup:", error);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    loadStartupData();
+  }, [form]);
+
+  const handleSubmit = async (data: StartupFormValues) => {
     setIsSubmitting(true);
-    
-    setTimeout(() => {
+
+    try {
+      console.log("🚀 Enviando datos de startup:", data);
+
+      // Llamar al onSubmit proporcionado por el componente padre (mantener compatibilidad)
       onSubmit(data);
-      setIsSubmitting(false);
-    }, 500);
+
+      // Mapear datos del formulario al formato del endpoint
+      const endpointData = {
+        nombre: data.nombre,
+        razonSocial: data.razonSocial,
+        ruc: data.ruc,
+        fechaFundacion: data.fechaFundacion,
+        categoria: data.categoria,
+        paginaWeb: data.web,
+        descripcion: data.descripcion,
+        etapa: data.etapa,
+        origen: data.origen,
+        videoPitchUrl: data.videoPitch,
+      };
+
+      // Enviar los datos al endpoint de la API
+      const response = await fetch('/api/startups/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(endpointData)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al guardar la startup");
+      }
+
+      console.log("✅ Startup guardada exitosamente:", result);
+
+      // Mostrar mensaje de éxito usando toast
+      toast.success("Startup guardada exitosamente");
+
+      // Actualizar el estado
+      setIsNewStartup(false);
+
+    } catch (error) {
+      console.error("💥 Error guardando startup:", error);
+      toast.error("Error al guardar la startup. Intenta nuevamente.");
+
+    } finally {
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 500);
+    }
   };
+
+  // Mostrar loading mientras se cargan los datos
+  if (loadingData) {
+    return (
+      <div className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-6">
+        <div className="text-center">
+          <div className="h-8 bg-muted animate-pulse rounded w-48 mx-auto mb-2"></div>
+          <div className="h-4 bg-muted animate-pulse rounded w-64 mx-auto"></div>
+        </div>
+        <div className="bg-card p-4 sm:p-6 rounded-lg shadow-sm border">
+          <div className="space-y-4">
+            <div className="h-6 bg-muted animate-pulse rounded w-32"></div>
+            <div className="h-10 bg-muted animate-pulse rounded"></div>
+            <div className="h-10 bg-muted animate-pulse rounded"></div>
+            <div className="h-10 bg-muted animate-pulse rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-6">
@@ -94,7 +221,7 @@ export default function StartupProfileForm({
           Completa la información de tu emprendimiento
         </p>
       </div>
-      
+
       <div className="bg-card p-4 sm:p-6 rounded-lg shadow-sm border">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
@@ -115,7 +242,7 @@ export default function StartupProfileForm({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="razonSocial"
@@ -129,7 +256,7 @@ export default function StartupProfileForm({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="ruc"
@@ -143,7 +270,7 @@ export default function StartupProfileForm({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="fechaFundacion"
@@ -157,7 +284,7 @@ export default function StartupProfileForm({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="categoria"
@@ -271,7 +398,7 @@ export default function StartupProfileForm({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="videoPitch"
@@ -288,7 +415,7 @@ export default function StartupProfileForm({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="descripcion"
@@ -296,10 +423,10 @@ export default function StartupProfileForm({
                     <FormItem>
                       <FormLabel>Descripción corta <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
-                        <Textarea 
-                          placeholder="Describe tu startup o proyecto (máx. 500 caracteres)" 
-                          className="min-h-[120px]" 
-                          {...field} 
+                        <Textarea
+                          placeholder="Describe tu startup o proyecto (máx. 500 caracteres)"
+                          className="min-h-[120px]"
+                          {...field}
                           onChange={(e) => {
                             field.onChange(e);
                             setCharCount(e.target.value.length);
@@ -318,10 +445,10 @@ export default function StartupProfileForm({
                 />
               </div>
             </div>
-            
-            <Button 
-              type="submit" 
-              className="w-full mt-6" 
+
+            <Button
+              type="submit"
+              className="w-full mt-6"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Guardando..." : "Guardar información"}

@@ -16,8 +16,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState } from "react";
-import { toast } from "@/components/ui/use-toast";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
@@ -53,12 +53,14 @@ export default function ProfileForm({
   isLoading = false
 }: ProfileFormProps) {
   const [submitting, setSubmitting] = useState(false);
-  const [charCount, setCharCount] = useState(userData?.biografia?.length || 0);
+  const [charCount, setCharCount] = useState(0);
+  const [loadingData, setLoadingData] = useState(true);
+  const [currentUserEmail, setCurrentUserEmail] = useState(userEmail);
   const router = useRouter();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: userData || {
+    defaultValues: {
       nombres: "",
       apellidos: "",
       dni: "",
@@ -70,6 +72,70 @@ export default function ProfileForm({
     },
   });
 
+  // Cargar datos del usuario al montar el componente
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        console.log("🔍 Cargando datos del usuario...");
+        
+        const response = await fetch('/api/auth/register-profile', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const { user } = await response.json();
+          console.log("✅ Datos del usuario cargados:", user);
+          
+          // Actualizar el email del usuario
+          setCurrentUserEmail(user.email);
+          
+          // Preparar los datos para el formulario
+          const formData = {
+            nombres: user.nombres || "",
+            apellidos: user.apellidos || "",
+            dni: user.dni || "",
+            telefono: user.telefono || "",
+            correoLaureate: user.correoLaureate || "",
+            linkedin: user.linkedin || "",
+            biografia: user.biografia || "",
+            politicaPrivacidad: user.haAceptadoPolitica || false,
+          };
+
+          console.log("📝 Datos preparados para el formulario:", formData);
+          console.log("📧 Email del usuario:", user.email);
+
+          // Actualizar el formulario con los datos del usuario
+          form.reset(formData);
+
+          // Actualizar el contador de caracteres de biografía
+          setCharCount(user.biografia?.length || 0);
+          
+        } else {
+          console.log("❌ Error al cargar datos del usuario:", response.status);
+        }
+      } catch (error) {
+        console.error("💥 Error cargando datos del usuario:", error);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    loadUserData();
+  }, [form]);
+
+  // Actualizar contador cuando cambie la biografía
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'biografia') {
+        setCharCount(value.biografia?.length || 0);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
   const handleSubmit = async (data: FormValues) => {
     setSubmitting(true);
 
@@ -77,8 +143,8 @@ export default function ProfileForm({
       // Llamar al onSubmit proporcionado por el componente padre (para mantener compatibilidad)
       onSubmit(data);
 
-      // Además, enviar los datos al endpoint de la API
-      const response = await fetch('/api/users/update-profile', {
+      // Enviar los datos al endpoint de la API
+      const response = await fetch('/api/auth/register-profile', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,10 +165,9 @@ export default function ProfileForm({
       toast.success("Tu información ha sido guardada correctamente.");
 
       // La redirección se manejará según el flujo existente
-      // No añadimos una redirección aquí para no interferir con la funcionalidad existente
 
     } catch (error) {
-      console.error("Error actualizando perfil:", error);
+      console.error("💥 Error actualizando perfil:", error);
       toast.error("No se pudo actualizar tu perfil. Intenta nuevamente.");
     } finally {
       setTimeout(() => {
@@ -111,13 +176,37 @@ export default function ProfileForm({
     }
   };
 
+  // Mostrar loading mientras se cargan los datos
+  if (loadingData) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <div className="h-4 bg-muted animate-pulse rounded w-24"></div>
+          <div className="h-10 bg-muted animate-pulse rounded"></div>
+        </div>
+        <div className="space-y-2">
+          <div className="h-4 bg-muted animate-pulse rounded w-20"></div>
+          <div className="h-10 bg-muted animate-pulse rounded"></div>
+        </div>
+        <div className="space-y-2">
+          <div className="h-4 bg-muted animate-pulse rounded w-28"></div>
+          <div className="h-10 bg-muted animate-pulse rounded"></div>
+        </div>
+        <div className="space-y-2">
+          <div className="h-4 bg-muted animate-pulse rounded w-16"></div>
+          <div className="h-10 bg-muted animate-pulse rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Email del usuario fuera del Form */}
       <div className="mb-6">
         <label className="text-sm font-medium">Correo electrónico</label>
         <Input
-          value={userEmail}
+          value={currentUserEmail}
           disabled
           className="bg-muted mt-1"
         />
@@ -213,7 +302,6 @@ export default function ProfileForm({
             )}
           />
 
-          {/* Nuevo campo: LinkedIn */}
           <FormField
             control={form.control}
             name="linkedin"
@@ -231,7 +319,6 @@ export default function ProfileForm({
             )}
           />
 
-          {/* Nuevo campo: Biografía */}
           <FormField
             control={form.control}
             name="biografia"
@@ -243,10 +330,6 @@ export default function ProfileForm({
                     placeholder="Breve descripción de tu experiencia y habilidades"
                     className="min-h-[120px] resize-none"
                     {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                      setCharCount(e.target.value.length);
-                    }}
                   />
                 </FormControl>
                 <div className="flex justify-end">
@@ -262,7 +345,6 @@ export default function ProfileForm({
             )}
           />
 
-          {/* Checkbox de política de privacidad */}
           <FormField
             control={form.control}
             name="politicaPrivacidad"
