@@ -8,36 +8,84 @@ interface StartupCardProps {
     id: string;
     nombre: string;
     descripcion: string;
-    fechaFundacion: string;
+    fechaFundacion: string | Date;
     etapa: string;
     categoria: string;
     membersCount?: number;
+    members?: { rol: string }[];
   };
   onClick: (id: string) => void;
 }
 
 export default function StartupCard({ startup, onClick }: StartupCardProps) {
-  const { id, nombre, descripcion, fechaFundacion, etapa, categoria, membersCount = 0 } = startup;
+  const { id, nombre, descripcion, fechaFundacion, etapa, categoria, membersCount, members } = startup;
+
+  // Calcular el número de miembros desde la base de datos o usar el valor por defecto
+  const actualMembersCount = membersCount || members?.length || 0;
 
   const getEtapaColor = (etapa: string) => {
-    switch (etapa) {
+    switch (etapa.toLowerCase()) {
       case "mvp":
         return "bg-amber-100 text-amber-800";
       case "idea":
         return "bg-blue-100 text-blue-800";
+      case "crecimiento":
+        return "bg-green-100 text-green-800";
+      case "escalamiento":
+        return "bg-purple-100 text-purple-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
   const getCategoriaColor = (categoria: string) => {
-    switch (categoria) {
+    switch (categoria.toLowerCase()) {
       case "tech":
+      case "tecnología":
         return "bg-green-100 text-green-800";
       case "edtech":
+      case "educación":
         return "bg-purple-100 text-purple-800";
+      case "fintech":
+        return "bg-blue-100 text-blue-800";
+      case "healthtech":
+      case "salud":
+        return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const formatEtapaDisplay = (etapa: string) => {
+    switch (etapa.toLowerCase()) {
+      case "mvp":
+        return "MVP";
+      case "idea":
+        return "Idea";
+      case "crecimiento":
+        return "Crecimiento";
+      case "escalamiento":
+        return "Escalamiento";
+      default:
+        return etapa;
+    }
+  };
+
+  const formatCategoriaDisplay = (categoria: string) => {
+    switch (categoria.toLowerCase()) {
+      case "tech":
+      case "tecnología":
+        return "Tech";
+      case "edtech":
+      case "educación":
+        return "EdTech";
+      case "fintech":
+        return "FinTech";
+      case "healthtech":
+      case "salud":
+        return "HealthTech";
+      default:
+        return categoria;
     }
   };
 
@@ -48,10 +96,10 @@ export default function StartupCard({ startup, onClick }: StartupCardProps) {
           <h3 className="font-bold text-lg">{nombre}</h3>
           <div className="flex space-x-2">
             <Badge variant="outline" className={getEtapaColor(etapa)}>
-              {etapa === "mvp" ? "MVP" : "Idea"}
+              {formatEtapaDisplay(etapa)}
             </Badge>
             <Badge variant="outline" className={getCategoriaColor(categoria)}>
-              {categoria === "tech" ? "Tech" : categoria === "edtech" ? "EdTech" : "Otras"}
+              {formatCategoriaDisplay(categoria)}
             </Badge>
           </div>
         </div>
@@ -67,7 +115,7 @@ export default function StartupCard({ startup, onClick }: StartupCardProps) {
           </div>
           <div className="flex items-center">
             <Users2 size={14} className="mr-1" />
-            <span>{membersCount} integrantes</span>
+            <span>{actualMembersCount} integrantes</span>
           </div>
         </div>
       </CardContent>
