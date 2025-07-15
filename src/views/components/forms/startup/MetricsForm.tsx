@@ -33,18 +33,15 @@ const metricsSchema = z.object({
   hasHadSales: z.boolean({
     required_error: "Este campo es obligatorio",
   }),
-  totalSalesAmount: z.string()
-    .regex(/^\d*$/, { message: "Debe ser un número entero" })
-    .optional()
-    .or(z.literal("")),
-  salesCurrency: z.string().length(3, { message: "Debe ser un código de 3 letras" }).optional(),
+  totalSalesAmount: z.string().optional(),
+  salesCurrency: z.string().optional(),
 
   // Piloto/Prueba
   hasPilot: z.boolean({
     required_error: "Este campo es obligatorio",
   }),
-  pilotLink: z.string().url({ message: "Debe ser una URL válida" }).optional(),
-  solutionApplication: z.string().min(1, { message: "Este campo es obligatorio" }).optional(),
+  pilotLink: z.string().optional(),
+  solutionApplication: z.string().optional(),
   technologyUsed: z.string().min(1, { message: "Este campo es obligatorio" }),
 
   // Área tech
@@ -56,11 +53,38 @@ const metricsSchema = z.object({
   hasReceivedInvestment: z.boolean({
     required_error: "Este campo es obligatorio",
   }),
-  investmentAmount: z.string()
-    .regex(/^\d*$/, { message: "Debe ser un número entero" })
-    .optional()
-    .or(z.literal("")),
-  investmentCurrency: z.string().length(3, { message: "Debe ser un código de 3 letras" }).optional(),
+  investmentAmount: z.string().optional(),
+  investmentCurrency: z.string().optional(),
+}).refine((data) => {
+  // Validar campos de ventas solo si hasHadSales es true
+  if (data.hasHadSales) {
+    return data.totalSalesAmount && data.totalSalesAmount.trim() !== "" && 
+           data.salesCurrency && data.salesCurrency.trim() !== "";
+  }
+  return true;
+}, {
+  message: "Los campos de ventas son obligatorios cuando se tienen ventas",
+  path: ["totalSalesAmount"]
+}).refine((data) => {
+  // Validar campos de piloto solo si hasPilot es true
+  if (data.hasPilot) {
+    return data.pilotLink && data.pilotLink.trim() !== "" && 
+           data.solutionApplication && data.solutionApplication.trim() !== "";
+  }
+  return true;
+}, {
+  message: "Los campos de piloto son obligatorios cuando se tiene piloto",
+  path: ["pilotLink"]
+}).refine((data) => {
+  // Validar campos de inversión solo si hasReceivedInvestment es true
+  if (data.hasReceivedInvestment) {
+    return data.investmentAmount && data.investmentAmount.trim() !== "" && 
+           data.investmentCurrency && data.investmentCurrency.trim() !== "";
+  }
+  return true;
+}, {
+  message: "Los campos de inversión son obligatorios cuando se recibió inversión",
+  path: ["investmentAmount"]
 });
 
 type MetricsFormValues = z.infer<typeof metricsSchema>;
