@@ -1,5 +1,5 @@
 import { Providers } from "@/views/components/shared/providers";
-import { Toaster } from "@/components/ui/use-toast";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
