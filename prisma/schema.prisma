@@ -132,6 +132,7 @@ model Member {
   user      User    @relation(fields: [dni], references: [dni])
   startup   Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
 
+  @@unique([dni, startupId])
   @@index([startupId])
   @@index([dni])
   @@index([email])
