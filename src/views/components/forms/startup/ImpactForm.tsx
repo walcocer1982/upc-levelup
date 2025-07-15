@@ -13,34 +13,34 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 
 const impactSchema = z.object({
   // Criterio 1: Nivel de complejidad de la situación que resuelven
-  casoReal: z.string().min(10, "Por favor describe un caso real con más detalle"),
-  abordajeAnterior: z.string().min(10, "Por favor describe cómo abordaban el problema con más detalle"),
-  consecuenciasProblema: z.string().min(10, "Por favor describe las consecuencias con más detalle"),
-  otrosAfectados: z.string().min(10, "Por favor describe a otros afectados con más detalle"),
+  casoReal: z.string().optional(),
+  abordajeProblema: z.string().optional(),
+  consecuenciasProblema: z.string().optional(),
+  otrosAfectados: z.string().optional(),
 
   // Criterio 2: Tamaño de mercado
-  tamanoMercado: z.string().min(10, "Por favor estima el tamaño del mercado con más detalle"),
-  validacionClientes: z.string().min(5, "Por favor indica con cuántos clientes han conversado"),
-  disposicionPago: z.string().min(5, "Por favor indica cuántos expresaron disposición a pagar"),
-  segmentoInteres: z.string().min(10, "Por favor describe el segmento con más detalle"),
+  tamanoMercado: z.string().optional(),
+  validacionClientes: z.string().optional(),
+  disposicionPago: z.string().optional(),
+  segmentoInteres: z.string().optional(),
 
   // Criterio 3: Potencial de escalar
-  estrategiaAdquisicion: z.string().min(10, "Por favor describe la estrategia con más detalle"),
-  costoAdquisicion: z.string().min(5, "Por favor indica el costo de adquisición estimado"),
-  facilidadExpansion: z.string().min(10, "Por favor describe la viabilidad de expansión con más detalle"),
-  estrategiasEscalabilidad: z.string().min(10, "Por favor describe las estrategias con más detalle"),
+  estrategiaAdquisicion: z.string().optional(),
+  costoAdquisicion: z.string().optional(),
+  facilidadExpansion: z.string().optional(),
+  estrategiasEscalabilidad: z.string().optional(),
 
   // Criterio 4: Equipo emprendedor
-  trayectoriaEquipo: z.string().min(5, "Por favor indica cuánto tiempo llevan trabajando juntos"),
-  experienciaEquipo: z.string().min(10, "Por favor describe la experiencia del equipo con más detalle"),
-  rolesEquipo: z.string().min(10, "Por favor describe los roles con más detalle"),
-  superacionDesafios: z.string().min(10, "Por favor describe la situación con más detalle"),
+  trayectoriaEquipo: z.string().optional(),
+  experienciaEquipo: z.string().optional(),
+  rolesEquipo: z.string().optional(),
+  superacionDesafios: z.string().optional(),
 });
 
 type ImpactFormValues = z.infer<typeof impactSchema>;
@@ -61,7 +61,7 @@ export default function ImpactForm({ onSubmit, initialData, startupId }: ImpactF
     defaultValues: initialData || {
       // Criterio 1
       casoReal: "",
-      abordajeAnterior: "",
+      abordajeProblema: "",
       consecuenciasProblema: "",
       otrosAfectados: "",
 
@@ -86,45 +86,102 @@ export default function ImpactForm({ onSubmit, initialData, startupId }: ImpactF
   });
 
   // Cargar datos existentes al montar el componente
-  useEffect(() => {
-    if (startupId) {
-      loadImpactData();
+  const loadImpactData = useCallback(async () => {
+    if (!startupId) {
+      console.log("🔄 Sin startupId, formulario vacío");
+      return;
     }
-  }, [startupId]);
-
-  const loadImpactData = async () => {
-    if (!startupId) return;
 
     try {
+      console.log("🔍 Cargando impact para startup:", startupId);
       setIsLoading(true);
+
       const response = await fetch(`/api/startups/${startupId}/impact`);
 
       if (response.ok) {
         const data = await response.json();
+        console.log("✅ Impact cargado:", data.impact ? "Con datos" : "Sin datos");
+
         if (data.impact) {
           form.reset(data.impact);
+        } else {
+          // Si no hay datos, resetear a valores vacíos
+          form.reset({
+            casoReal: "",
+            abordajeProblema: "",
+            consecuenciasProblema: "",
+            otrosAfectados: "",
+            tamanoMercado: "",
+            validacionClientes: "",
+            disposicionPago: "",
+            segmentoInteres: "",
+            estrategiaAdquisicion: "",
+            costoAdquisicion: "",
+            facilidadExpansion: "",
+            estrategiasEscalabilidad: "",
+            trayectoriaEquipo: "",
+            experienciaEquipo: "",
+            rolesEquipo: "",
+            superacionDesafios: "",
+          });
         }
+      } else {
+        console.error("Error al cargar impact:", response.status);
       }
     } catch (error) {
       console.error('Error al cargar datos de impacto:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [startupId, form]);
+
+  useEffect(() => {
+    loadImpactData();
+  }, [loadImpactData]);
 
   const handleSubmit = async (data: ImpactFormValues) => {
+    console.log("🚀 handleSubmit iniciado - BUTTON WORKING");
+    console.log("📊 startupId:", startupId);
+    console.log("📊 activeSection:", activeSection);
+    console.log("📊 form data:", data);
+
     if (!startupId) {
-      toast.error("No se encontró el ID de la startup");
+      console.log("❌ Sin startupId - Abortando");
+      toast.error("Selecciona una startup primero");
       return;
     }
+
+    // ✅ Validar campos de la sección activa
+    const sectionFields = getSectionFields(activeSection);
+    console.log("🔍 Campos de la sección:", sectionFields);
+
+    const hasEmptyFields = sectionFields.some(field => {
+      const value = data[field];
+      const isEmpty = !value || value.trim() === "";
+      console.log(`🔍 Campo ${field}:`, isEmpty ? "VACÍO" : "LLENO", `(${value?.length || 0} chars)`);
+      return isEmpty;
+    });
+
+    console.log("🔍 Campos vacíos encontrados:", hasEmptyFields);
+
+    if (hasEmptyFields) {
+      console.log("❌ Validación fallida - Campos vacíos");
+      toast.error("Por favor completa todos los campos de esta sección");
+      return;
+    }
+
+    console.log("💾 Guardando sección:", activeSection, "para startup:", startupId);
+
+    const sectionData = getSectionData(data, activeSection);
+    console.log("📄 Datos a enviar:", sectionData);
 
     setIsSubmitting(true);
 
     try {
-      // Filtrar solo los campos de la sección activa
-      const sectionData = getSectionData(data, activeSection);
+      const url = `/api/startups/${startupId}/impact`;
+      console.log("🌐 URL de request:", url);
 
-      const response = await fetch(`/api/startups/${startupId}/impact`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,109 +189,67 @@ export default function ImpactForm({ onSubmit, initialData, startupId }: ImpactF
         body: JSON.stringify(sectionData),
       });
 
+      console.log("🌐 Response status:", response.status);
+      console.log("🌐 Response ok:", response.ok);
+
       if (response.ok) {
         const result = await response.json();
+        console.log("✅ Respuesta del servidor:", result);
         toast.success("Información guardada correctamente");
 
         // Llamar al onSubmit original si existe
-        onSubmit(data);
+        if (onSubmit) {
+          onSubmit(data);
+        }
       } else {
         const error = await response.json();
-        toast.error("Error de conexión al guardar");
+        console.error("❌ Error del servidor:", error);
+        toast.error(error.message || "Error al guardar la información");
       }
     } catch (error) {
-      console.error('Error al guardar:', error);
-      toast.error("Error al guardar la información");
+      console.error('💥 Error al guardar:', error);
+      toast.error("Error de conexión al guardar");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Función para obtener solo los datos de la sección activa
-  const getSectionData = (data: ImpactFormValues, section: number) => {
-    const allData = form.getValues();
-
+  const getSectionFields = (section: number): (keyof ImpactFormValues)[] => {
     switch (section) {
       case 1:
-        return {
-          casoReal: data.casoReal,
-          abordajeAnterior: data.abordajeAnterior,
-          consecuenciasProblema: data.consecuenciasProblema,
-          otrosAfectados: data.otrosAfectados,
-          // Mantener datos existentes de otras secciones
-          tamanoMercado: allData.tamanoMercado,
-          validacionClientes: allData.validacionClientes,
-          disposicionPago: allData.disposicionPago,
-          segmentoInteres: allData.segmentoInteres,
-          estrategiaAdquisicion: allData.estrategiaAdquisicion,
-          costoAdquisicion: allData.costoAdquisicion,
-          facilidadExpansion: allData.facilidadExpansion,
-          estrategiasEscalabilidad: allData.estrategiasEscalabilidad,
-          trayectoriaEquipo: allData.trayectoriaEquipo,
-          experienciaEquipo: allData.experienciaEquipo,
-          rolesEquipo: allData.rolesEquipo,
-          superacionDesafios: allData.superacionDesafios,
-        };
+        return ['casoReal', 'abordajeProblema', 'consecuenciasProblema', 'otrosAfectados'];
       case 2:
-        return {
-          casoReal: allData.casoReal,
-          abordajeAnterior: allData.abordajeAnterior,
-          consecuenciasProblema: allData.consecuenciasProblema,
-          otrosAfectados: allData.otrosAfectados,
-          tamanoMercado: data.tamanoMercado,
-          validacionClientes: data.validacionClientes,
-          disposicionPago: data.disposicionPago,
-          segmentoInteres: data.segmentoInteres,
-          estrategiaAdquisicion: allData.estrategiaAdquisicion,
-          costoAdquisicion: allData.costoAdquisicion,
-          facilidadExpansion: allData.facilidadExpansion,
-          estrategiasEscalabilidad: allData.estrategiasEscalabilidad,
-          trayectoriaEquipo: allData.trayectoriaEquipo,
-          experienciaEquipo: allData.experienciaEquipo,
-          rolesEquipo: allData.rolesEquipo,
-          superacionDesafios: allData.superacionDesafios,
-        };
+        return ['tamanoMercado', 'validacionClientes', 'disposicionPago', 'segmentoInteres'];
       case 3:
-        return {
-          casoReal: allData.casoReal,
-          abordajeAnterior: allData.abordajeAnterior,
-          consecuenciasProblema: allData.consecuenciasProblema,
-          otrosAfectados: allData.otrosAfectados,
-          tamanoMercado: allData.tamanoMercado,
-          validacionClientes: allData.validacionClientes,
-          disposicionPago: allData.disposicionPago,
-          segmentoInteres: allData.segmentoInteres,
-          estrategiaAdquisicion: data.estrategiaAdquisicion,
-          costoAdquisicion: data.costoAdquisicion,
-          facilidadExpansion: data.facilidadExpansion,
-          estrategiasEscalabilidad: data.estrategiasEscalabilidad,
-          trayectoriaEquipo: allData.trayectoriaEquipo,
-          experienciaEquipo: allData.experienciaEquipo,
-          rolesEquipo: allData.rolesEquipo,
-          superacionDesafios: allData.superacionDesafios,
-        };
+        return ['estrategiaAdquisicion', 'costoAdquisicion', 'facilidadExpansion', 'estrategiasEscalabilidad'];
       case 4:
-        return {
-          casoReal: allData.casoReal,
-          abordajeAnterior: allData.abordajeAnterior,
-          consecuenciasProblema: allData.consecuenciasProblema,
-          otrosAfectados: allData.otrosAfectados,
-          tamanoMercado: allData.tamanoMercado,
-          validacionClientes: allData.validacionClientes,
-          disposicionPago: allData.disposicionPago,
-          segmentoInteres: allData.segmentoInteres,
-          estrategiaAdquisicion: allData.estrategiaAdquisicion,
-          costoAdquisicion: allData.costoAdquisicion,
-          facilidadExpansion: allData.facilidadExpansion,
-          estrategiasEscalabilidad: allData.estrategiasEscalabilidad,
-          trayectoriaEquipo: data.trayectoriaEquipo,
-          experienciaEquipo: data.experienciaEquipo,
-          rolesEquipo: data.rolesEquipo,
-          superacionDesafios: data.superacionDesafios,
-        };
+        return ['trayectoriaEquipo', 'experienciaEquipo', 'rolesEquipo', 'superacionDesafios'];
       default:
-        return data;
+        return [];
     }
+  };
+
+  // Función para obtener solo los datos de la sección activa
+  const getSectionData = (data: ImpactFormValues, section: number) => {
+    // ✅ Enviar todos los datos, no solo los de la sección activa
+    return {
+      casoReal: data.casoReal || "",
+      abordajeProblema: data.abordajeProblema || "",
+      consecuenciasProblema: data.consecuenciasProblema || "",
+      otrosAfectados: data.otrosAfectados || "",
+      tamanoMercado: data.tamanoMercado || "",
+      validacionClientes: data.validacionClientes || "",
+      disposicionPago: data.disposicionPago || "",
+      segmentoInteres: data.segmentoInteres || "",
+      estrategiaAdquisicion: data.estrategiaAdquisicion || "",
+      costoAdquisicion: data.costoAdquisicion || "",
+      facilidadExpansion: data.facilidadExpansion || "",
+      estrategiasEscalabilidad: data.estrategiasEscalabilidad || "",
+      trayectoriaEquipo: data.trayectoriaEquipo || "",
+      experienciaEquipo: data.experienciaEquipo || "",
+      rolesEquipo: data.rolesEquipo || "",
+      superacionDesafios: data.superacionDesafios || "",
+    };
   };
 
   // Renderizar un campo de texto
@@ -340,7 +355,7 @@ export default function ImpactForm({ onSubmit, initialData, startupId }: ImpactF
                     )}
 
                     {renderTextareaField(
-                      "abordajeAnterior",
+                      "abordajeProblema",
                       "¿Cómo abordaban el problema antes de su solución?",
                       "Antes de conocer tu propuesta, ¿qué métodos o herramientas utilizaban para manejar esta situación? ¿Cuáles eran sus principales limitaciones o ineficiencias?"
                     )}
@@ -482,6 +497,7 @@ export default function ImpactForm({ onSubmit, initialData, startupId }: ImpactF
               type="submit"
               className="w-full mt-6"
               disabled={isSubmitting}
+              onClick={() => console.log("🔘 Botón clickeado")}
             >
               {isSubmitting ? "Guardando..." : "Guardar información"}
             </Button>

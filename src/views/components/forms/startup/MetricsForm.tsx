@@ -18,12 +18,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 
 // Lista de códigos de moneda ISO 4217
 const currencyCodes = [
-  "USD", "EUR", "GBP", "JPY", "AUD", 
-  "CAD", "CHF", "CNY", "SEK", "NZD", 
-  "MXN", "SGD", "HKD", "NOK", "KRW", 
+  "USD", "EUR", "GBP", "JPY", "AUD",
+  "CAD", "CHF", "CNY", "SEK", "NZD",
+  "MXN", "SGD", "HKD", "NOK", "KRW",
   "TRY", "INR", "BRL", "ZAR", "PEN"
 ];
 
@@ -37,7 +38,7 @@ const metricsSchema = z.object({
     .optional()
     .or(z.literal("")),
   salesCurrency: z.string().length(3, { message: "Debe ser un código de 3 letras" }).optional(),
-  
+
   // Piloto/Prueba
   hasPilot: z.boolean({
     required_error: "Este campo es obligatorio",
@@ -45,12 +46,12 @@ const metricsSchema = z.object({
   pilotLink: z.string().url({ message: "Debe ser una URL válida" }).optional(),
   solutionApplication: z.string().min(1, { message: "Este campo es obligatorio" }).optional(),
   technologyUsed: z.string().min(1, { message: "Este campo es obligatorio" }),
-  
+
   // Área tech
   hasTechDepartment: z.boolean({
     required_error: "Este campo es obligatorio",
   }),
-  
+
   // Inversión
   hasReceivedInvestment: z.boolean({
     required_error: "Este campo es obligatorio",
@@ -67,70 +68,99 @@ type MetricsFormValues = z.infer<typeof metricsSchema>;
 interface MetricsFormProps {
   onSubmit: (data: MetricsFormValues) => void;
   initialData?: Partial<MetricsFormValues>;
+  startupId?: string;
 }
 
-export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps) {
+export default function MetricsForm({ onSubmit, initialData, startupId }: MetricsFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(false);
+
   const form = useForm<MetricsFormValues>({
     resolver: zodResolver(metricsSchema),
-    defaultValues: initialData || {
+    defaultValues: {
       hasHadSales: false,
+      totalSalesAmount: "",
+      salesCurrency: "",
       hasPilot: false,
+      pilotLink: "",
+      solutionApplication: "",
       technologyUsed: "",
       hasTechDepartment: false,
       hasReceivedInvestment: false,
+      investmentAmount: "",
+      investmentCurrency: "",
+      ...initialData
     },
   });
+
+  useEffect(() => {
+    const loadMetricsData = async () => {
+      if (!startupId) return;
+
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/startups/${startupId}/metrics`);
+        const data = await response.json();
+
+        if (response.ok && data.metrics) {
+          console.log("✅ Metrics cargadas:", data.metrics);
+          form.reset(data.metrics);
+        } else {
+          console.log("✅ Metrics cargadas: Sin datos");
+        }
+      } catch (error) {
+        console.error("❌ Error cargando metrics:", error);
+        toast.error("Error al cargar las métricas");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMetricsData();
+  }, [startupId, form]);
 
   // Observar cambios en los campos condicionales
   const watchHasHadSales = form.watch("hasHadSales");
   const watchHasPilot = form.watch("hasPilot");
   const watchHasReceivedInvestment = form.watch("hasReceivedInvestment");
 
-  // Efecto para manejar la validación condicional
-  useEffect(() => {
-    // Si tiene ventas, los campos de ventas son requeridos
-    if (watchHasHadSales) {
-      form.register("totalSalesAmount", { required: "Este campo es obligatorio" });
-      form.register("salesCurrency", { required: "Este campo es obligatorio" });
-    } else {
-      form.unregister("totalSalesAmount");
-      form.unregister("salesCurrency");
+  const handleSubmit = async (data: MetricsFormValues) => {
+    if (!startupId) {
+      toast.error("ID de startup no encontrado");
+      return;
     }
 
-    // Si tiene piloto, los campos de piloto son requeridos
-    if (watchHasPilot) {
-      form.register("pilotLink", { required: "Este campo es obligatorio" });
-      form.register("solutionApplication", { required: "Este campo es obligatorio" });
-    } else {
-      form.unregister("pilotLink");
-      form.unregister("solutionApplication");
-    }
-
-    // Si recibió inversión, los campos de inversión son requeridos
-    if (watchHasReceivedInvestment) {
-      form.register("investmentAmount", { required: "Este campo es obligatorio" });
-      form.register("investmentCurrency", { required: "Este campo es obligatorio" });
-    } else {
-      form.unregister("investmentAmount");
-      form.unregister("investmentCurrency");
-    }
-  }, [watchHasHadSales, watchHasPilot, watchHasReceivedInvestment, form]);
-
-  const handleSubmit = (data: MetricsFormValues) => {
     setIsSubmitting(true);
-    
-    setTimeout(() => {
-      onSubmit(data);
+
+    try {
+      const response = await fetch(`/api/startups/${startupId}/metrics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success(result.message || "Métricas guardadas exitosamente");
+        onSubmit(data);
+      } else {
+        toast.error(result.error || "Error al guardar las métricas");
+      }
+    } catch (error) {
+      console.error("❌ Error:", error);
+      toast.error("Error al guardar las métricas");
+    } finally {
       setIsSubmitting(false);
-    }, 500);
+    }
   };
 
   // Función de ayuda para renderizar campos de selección booleana
   const renderBooleanField = (
-    name: "hasHadSales" | "hasPilot" | "hasTechDepartment" | "hasReceivedInvestment", 
-    label: string, 
+    name: "hasHadSales" | "hasPilot" | "hasTechDepartment" | "hasReceivedInvestment",
+    label: string,
     description?: string
   ) => (
     <FormField
@@ -162,6 +192,19 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
     />
   );
 
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-6">
+        <div className="text-center">
+          <h1 className="text-xl sm:text-2xl font-bold">Métricas de tu Startup</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Cargando datos...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-6">
       <div className="text-center">
@@ -170,7 +213,7 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
           Comparte los indicadores clave de desempeño de tu startup
         </p>
       </div>
-      
+
       <div className="bg-card p-4 sm:p-6 rounded-lg shadow-sm border">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
@@ -178,8 +221,8 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {renderBooleanField(
-                  "hasHadSales", 
-                  "¿Ha tenido ventas?", 
+                  "hasHadSales",
+                  "¿Ha tenido ventas?",
                   "Indica si tu startup ha generado ingresos por ventas"
                 )}
               </div>
@@ -201,7 +244,7 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="salesCurrency"
@@ -209,9 +252,9 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
                           <FormItem>
                             <FormLabel>Moneda</FormLabel>
                             <FormControl>
-                              <Input 
-                                placeholder="Ej: USD, EUR, PEN" 
-                                {...field} 
+                              <Input
+                                placeholder="Ej: USD, EUR, PEN"
+                                {...field}
                                 maxLength={3}
                                 onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                               />
@@ -233,7 +276,7 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
             <div className="space-y-4 pt-2 border-t">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {renderBooleanField(
-                  "hasPilot", 
+                  "hasPilot",
                   "¿Cuenta con piloto o prueba?",
                   "Indica si tienes algún producto piloto o versión de prueba"
                 )}
@@ -256,7 +299,7 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="solutionApplication"
@@ -299,7 +342,7 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
             {/* Sección de área tech */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
               {renderBooleanField(
-                "hasTechDepartment", 
+                "hasTechDepartment",
                 "¿Tiene área de desarrollo tech?",
                 "Indica si cuentas con un equipo o área dedicada al desarrollo tecnológico"
               )}
@@ -309,7 +352,7 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
             <div className="space-y-4 pt-2 border-t">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {renderBooleanField(
-                  "hasReceivedInvestment", 
+                  "hasReceivedInvestment",
                   "¿Recibió inversión externa?",
                   "Indica si tu startup ha recibido financiamiento externo"
                 )}
@@ -332,7 +375,7 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="investmentCurrency"
@@ -340,9 +383,9 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
                           <FormItem>
                             <FormLabel>Moneda</FormLabel>
                             <FormControl>
-                              <Input 
-                                placeholder="Ej: USD, EUR, PEN" 
-                                {...field} 
+                              <Input
+                                placeholder="Ej: USD, EUR, PEN"
+                                {...field}
                                 maxLength={3}
                                 onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                               />
@@ -359,10 +402,10 @@ export default function MetricsForm({ onSubmit, initialData }: MetricsFormProps)
                 </Card>
               )}
             </div>
-            
-            <Button 
-              type="submit" 
-              className="w-full mt-8" 
+
+            <Button
+              type="submit"
+              className="w-full mt-8"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Guardando..." : "Guardar métricas"}
