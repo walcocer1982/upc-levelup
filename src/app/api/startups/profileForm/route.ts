@@ -7,11 +7,18 @@ const prisma = new PrismaClient();
 export async function GET(request: NextRequest) {
   try {
     console.log("🔍 GET /api/startups/profile iniciado");
-    
+
+    // Obtener startupId del query parameter
+    const { searchParams } = new URL(request.url);
+    const startupId = searchParams.get('startupId');
+
+    console.log("🔍 startupId extraído:", startupId);
+    console.log("🔍 URL completa:", request.url);
+
     // Verificar que el usuario esté autenticado
     const session = await auth();
     console.log("📋 Session:", session);
-    
+
     if (!session || !session.user || !session.user.email) {
       console.log("❌ No hay sesión válida");
       return NextResponse.json(
@@ -20,48 +27,54 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Buscar el usuario en la base de datos
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: {
-        startups: {
-          include: {
-            startup: {
-              include: {
-                impact: true,
-                metrics: true
-              }
-            }
-          },
-          where: {
-            rol: { in: ["CEO", "CEO/Fundador", "Fundador"] }
-          }
-        }
+    // Si hay startupId, buscar startup específica
+    if (startupId) {
+      console.log("🎯 Entrando en lógica para startup específica:", startupId);
+
+      // Obtener startup específica
+      const startup = await prisma.startup.findUnique({
+        where: { id: startupId },
+        include: {
+          impact: true,
+          metrics: true
+        } 
+      });
+
+      if (!startup) {
+        return NextResponse.json({ error: "Startup no encontrada" }, { status: 404 });
       }
-    });
 
-    if (!user) {
-      console.log("❌ Usuario no encontrado");
-      return NextResponse.json(
-        { error: "Usuario no encontrado" },
-        { status: 404 }
-      );
-    }
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email }
+      });
 
-    // Si el usuario es CEO/Fundador de alguna startup, devolver la más reciente
-    if (user.startups.length > 0) {
-      const startupData = user.startups[0].startup;
-      console.log("✅ Startup encontrada:", startupData.nombre);
-      
+      if (!user || !user.dni) {
+        return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      }
+
+      const memberCheck = await prisma.member.findFirst({
+        where: {
+          dni: user.dni,
+          startupId: startupId
+        }
+      });
+
+      if (!memberCheck) {
+        return NextResponse.json({ error: "No tienes acceso a esta startup" }, { status: 403 });
+      }
+
+      console.log("✅ Devolviendo startup específica:", startup.nombre);
+
       return NextResponse.json({
-        startup: startupData,
-        isOwner: true,
-        memberRole: user.startups[0].rol
+        startup: startup,
+        isOwner: false,
+        memberRole: memberCheck.rol
       });
     }
 
-    // Si no tiene startup como CEO/Fundador
-    console.log("ℹ️ Usuario no tiene startup como CEO/Fundador");
+    // Si no hay startupId, es una nueva startup - devolver formulario vacío
+    console.log("🔄 Entrando en lógica para nueva startup (sin startupId)");
+    
     return NextResponse.json({
       startup: null,
       isOwner: false,
@@ -71,7 +84,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("💥 Error en GET /api/startups/profile:", error);
     return NextResponse.json(
-      { 
+      {
         error: "Error interno del servidor",
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       },
@@ -83,11 +96,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     console.log("🚀 POST /api/startups/profile iniciado");
-    
+
     // Verificar que el usuario esté autenticado
     const session = await auth();
     console.log("📋 Session:", session);
-    
+
     if (!session || !session.user || !session.user.email) {
       console.log("❌ No hay sesión válida");
       return NextResponse.json(
@@ -117,6 +130,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Obtener startupId del query parameter para actualización
+    const { searchParams } = new URL(request.url);
+    const startupId = searchParams.get('startupId');
+
     // Parsear los datos del request
     const body = await request.json();
     console.log("📝 Datos recibidos:", body);
@@ -124,7 +141,7 @@ export async function POST(request: NextRequest) {
     // Validar campos requeridos
     const requiredFields = ['nombre', 'fechaFundacion', 'categoria', 'descripcion', 'etapa', 'origen'];
     const missingFields = requiredFields.filter(field => !body[field]);
-    
+
     if (missingFields.length > 0) {
       console.log("❌ Campos requeridos faltantes:", missingFields);
       return NextResponse.json(
@@ -133,30 +150,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Obtener startupId del query parameter para actualización
-    const { searchParams } = new URL(request.url);
-    const startupId = searchParams.get('startupId');
-
     let startup;
     let isNewStartup = false;
 
     if (startupId) {
       // ACTUALIZAR startup específica
       console.log("📝 Actualizando startup específica:", startupId);
-      
+
       // Verificar que el usuario tenga permisos para actualizar esta startup
       const memberCheck = await prisma.member.findFirst({
         where: {
           dni: user.dni,
-          startupId: startupId,
-          rol: { in: ["CEO", "CEO/Fundador", "Fundador"] }
+          startupId: startupId
         }
       });
 
       if (!memberCheck) {
-        console.log("❌ Usuario no tiene permisos para actualizar esta startup");
+        console.log("❌ Usuario no es miembro de esta startup");
         return NextResponse.json(
-          { error: "No tiene permisos para actualizar esta startup" },
+          { error: "No es miembro de esta startup" },
           { status: 403 }
         );
       }
@@ -181,18 +193,18 @@ export async function POST(request: NextRequest) {
           members: true
         }
       });
-      
+
       console.log("✅ Startup actualizada exitosamente");
-      
+
     } else {
       // CREAR nueva startup
       console.log("🆕 Creando nueva startup");
-      
+
       // Verificar que el nombre no esté duplicado
       const duplicateStartup = await prisma.startup.findFirst({
         where: { nombre: body.nombre }
       });
-      
+
       if (duplicateStartup) {
         console.log("❌ Nombre de startup ya existe");
         return NextResponse.json(
@@ -251,7 +263,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("💥 Error en POST /api/startups/profile:", error);
     console.error("Stack trace:", error.stack);
-    
+
     // Manejar errores específicos
     if (error.code === 'P2002') {
       return NextResponse.json(
@@ -259,9 +271,9 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    
+
     return NextResponse.json(
-      { 
+      {
         error: "Error interno del servidor",
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       },

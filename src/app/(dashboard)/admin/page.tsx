@@ -48,8 +48,7 @@ export default function DashboardPage() {
 
     // Estados para controlar la navegación y visualización
     const [activeView, setActiveView] = useState<"profile" | "startups" | "startup-detail" | "applications">("startups");
-    const [selectedStartupId, setSelectedStartupId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<string>("profile");
+    const [selectedStartupId, setSelectedStartupId] = useState<string | undefined>(undefined); const [activeTab, setActiveTab] = useState<string>("profile");
 
     // Establecer el estado de montaje cuando el componente está listo en el cliente
     useEffect(() => {
@@ -77,7 +76,7 @@ export default function DashboardPage() {
     };
 
     const handleAddStartup = () => {
-        setSelectedStartupId("new");
+        setSelectedStartupId(null);
         setActiveView("startup-detail");
         setActiveTab("profile");
     };
@@ -146,24 +145,27 @@ export default function DashboardPage() {
                         {/* Contenido según el tab activo */}
                         {activeTab === "profile" && (
                             <StartupProfileForm
+                                startupId={selectedStartupId}
                                 onSubmit={(data) => console.log("Profile data:", data)}
                             />
                         )}
 
                         {activeTab === "impact" && (
                             <ImpactForm
+                                startupId={selectedStartupId}
                                 onSubmit={(data) => console.log("Impact data:", data)}
                             />
                         )}
 
                         {activeTab === "metrics" && (
                             <MetricsForm
+                                startupId={selectedStartupId}
                                 onSubmit={(data) => console.log("Metrics data:", data)}
                             />
                         )}
                         {activeTab === "members" && (
                             <MembersList
-                                startupId={selectedStartupId || undefined}
+                                startupId={selectedStartupId}
                                 onSubmit={(data) => console.log("Members data:", data)}
                             />
                         )}
@@ -173,7 +175,7 @@ export default function DashboardPage() {
             case "applications":
                 return (
                     <ApplicationList
-                        startupId={selectedStartupId || undefined}
+                        startupId={selectedStartupId}
                     />
                 );
 
