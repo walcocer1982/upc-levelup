@@ -1,58 +1,17 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import AuthButton from "@/views/components/login/AuthButton";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <div className="max-w-3xl w-full text-center space-y-6">
-        <h1 className="text-4xl font-bold">UPC-LevelUp</h1>
-        <p className="text-xl text-muted-foreground">
-          Sistema de evaluación de startups con inteligencia artificial
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
+      <div className="bg-white p-8 rounded-lg shadow-md flex flex-col items-center">
+        <h1 className="text-3xl font-bold mb-4 text-center">Bienvenido a StartUp UPC</h1>
+        <p className="mb-2 text-lg text-center">¡Bienvenid@!</p>
+        <p className="mb-2 text-center">¡Queremos conocer tu emprendimiento!</p>
+        <p className="mb-6 text-center">
+          Para empezar crea tu cuenta con tu correo gmail
         </p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-          <Link href="/evaluaciones/form" className="w-full">
-            <Button size="lg" className="w-full">
-              Evaluar una Startup
-            </Button>
-          </Link>
-          
-          <Link href="/evaluaciones" className="w-full">
-            <Button size="lg" variant="outline" className="w-full">
-              Ver evaluaciones
-            </Button>
-          </Link>
-        </div>
-        
-        <div className="mt-12 p-6 bg-muted rounded-lg">
-          <h2 className="text-2xl font-semibold mb-4">¿Cómo funciona?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-            <div className="space-y-2">
-              <div className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center font-bold">1</div>
-              <h3 className="font-medium">Completa el formulario</h3>
-              <p className="text-sm text-muted-foreground">
-                Responde las preguntas sobre tu startup en las cuatro áreas clave: Complejidad, Mercado, Escalabilidad y Equipo.
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center font-bold">2</div>
-              <h3 className="font-medium">Evaluación con IA</h3>
-              <p className="text-sm text-muted-foreground">
-                Nuestro sistema analiza tus respuestas utilizando embeddings y las compara con una base de conocimiento experto.
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center font-bold">3</div>
-              <h3 className="font-medium">Recibe feedback detallado</h3>
-              <p className="text-sm text-muted-foreground">
-                Obtén una evaluación detallada con puntuaciones, fortalezas, debilidades y recomendaciones específicas.
-              </p>
-            </div>
-          </div>
-        </div>
+        <AuthButton />
       </div>
     </div>
   );

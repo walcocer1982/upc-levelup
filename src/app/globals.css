@@ -120,3 +120,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Ocultar barra de desplazamiento para Chrome, Safari y Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ocultar barra de desplazamiento para IE, Edge y Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE y Edge */
+  scrollbar-width: none;  /* Firefox */
+}
