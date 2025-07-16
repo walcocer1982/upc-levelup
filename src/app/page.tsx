@@ -13,6 +13,6 @@ export default function HomePage() {
         </p>
         <AuthButton />
       </div>
-    </div>
+    </main>
   );
 }
