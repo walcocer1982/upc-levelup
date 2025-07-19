@@ -1,0 +1,38 @@
+// Cambios necesarios en src/app/(dashboard)/admin/convocatorias/page.tsx:
+
+// 1. Remover esta línea:
+// import ConvocatoriaFormModal from "@/components/modals/ConvocatoriaFormModal";
+
+// 2. Agregar esta línea después de los otros imports:
+// import Link from "next/link";
+
+// 3. Remover estos estados:
+// const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+// const [editingConvocatoria, setEditingConvocatoria] = useState<any>(null);
+
+// 4. Remover estas funciones:
+// const handleNewConvocatoria = () => {
+//   setEditingConvocatoria(null);
+//   setIsFormModalOpen(true);
+// };
+// const handleEditConvocatoria = (convocatoria: any) => {
+//   setEditingConvocatoria(convocatoria);
+//   setIsFormModalOpen(true);
+// };
+// const handleSaveConvocatoria = (formData: any) => { ... };
+
+// 5. Cambiar el botón "Nueva Convocatoria" por:
+// <Link href="/admin/convocatorias/nueva">
+//   <Button className="flex items-center gap-2">
+//     <Plus size={16} />
+//     Nueva Convocatoria
+//   </Button>
+// </Link>
+
+// 6. Remover el modal del JSX:
+// <ConvocatoriaFormModal
+//   isOpen={isFormModalOpen}
+//   onClose={() => setIsFormModalOpen(false)}
+//   onSave={handleSaveConvocatoria}
+//   convocatoria={editingConvocatoria}
+// />

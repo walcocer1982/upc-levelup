@@ -1,204 +1,271 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Layout from "@/views/components/interface/Layout";
-import ProfileForm from "@/views/components/forms/user/ProfileForm";
-import StartupList from "@/views/components/dashboard/startup/StartupList";
-import TabsNavigation from "@/views/components/interface/TabsNavigation";
-import StartupProfileForm from "@/views/components/forms/startup/ProfileForm";
-import ImpactForm from "@/views/components/forms/startup/ImpactForm";
-import MetricsForm from "@/views/components/forms/startup/MetricsForm";
-import MembersList from "@/views/components/dashboard/startup/MembersList";
-import ApplicationList from "@/views/components/forms/application/ApplicationList"; // Corregido el path
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Users, 
+  Building2, 
+  FileText, 
+  Calendar, 
+  TrendingUp, 
+  Eye, 
+  CheckCircle, 
+  Clock,
+  AlertCircle,
+  BarChart3,
+  Plus
+} from "lucide-react";
+import Link from "next/link";
+import { mockDataSummary } from "@/data/mock";
 
-// Definir las pestañas para la navegación de startup
-const startupTabs = [
-    { id: "profile", label: "Perfil" },
-    { id: "impact", label: "Impacto" },
-    { id: "metrics", label: "Métricas" },
-    { id: "members", label: "Integrantes" }
-];
-
-// Datos de ejemplo para las startups
-const mockStartups = [
+// Usar datos mock centralizados
+const mockStats = {
+  totalUsers: mockDataSummary.totalUsers,
+  totalStartups: mockDataSummary.totalStartups,
+  pendingEvaluations: mockDataSummary.postulacionesByEstado.en_revision,
+  activeConvocatorias: mockDataSummary.convocatoriasByEstado.abierta,
+  recentActivity: [
     {
-        id: "1",
-        nombre: "Tech Innovators",
-        descripcion: "Plataforma de inteligencia artificial para optimización de procesos industriales.",
-        fechaFundacion: "2023-03-15",
-        etapa: "mvp",
-        categoria: "tech",
-        membersCount: 3
+      id: "1",
+      type: "evaluation",
+      message: "Nueva evaluación completada para TechFlow Solutions",
+      time: "2 horas atrás",
+      status: "completed"
     },
     {
-        id: "2",
-        nombre: "EduLearn",
-        descripcion: "Solución para educación remota con enfoque en experiencias interactivas.",
-        fechaFundacion: "2022-11-21",
-        etapa: "idea",
-        categoria: "edtech",
-        membersCount: 2
+      id: "2",
+      type: "startup",
+      message: "Nueva startup registrada: EduTech Pro",
+      time: "4 horas atrás",
+      status: "new"
     },
-];
-
-export default function DashboardPage() {
-    // Estado para controlar la hidratación
-    const [isMounted, setIsMounted] = useState(false);
-
-    // Estados para controlar la navegación y visualización
-    const [activeView, setActiveView] = useState<"profile" | "startups" | "startup-detail" | "applications">("startups");
-    const [selectedStartupId, setSelectedStartupId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<string>("profile");
-
-    // Establecer el estado de montaje cuando el componente está listo en el cliente
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    // Funciones para la navegación
-    const handleSelectProfile = () => {
-        setActiveView("profile");
-    };
-
-    const handleSelectStartups = () => {
-        setActiveView("startups");
-        setSelectedStartupId(null);
-    };
-
-    const handleSelectApplications = () => {
-        setActiveView("applications");
-    };
-
-    const handleSelectStartup = (id: string) => {
-        setSelectedStartupId(id);
-        setActiveView("startup-detail");
-        setActiveTab("profile");
-    };
-
-    const handleAddStartup = () => {
-        setSelectedStartupId("new");
-        setActiveView("startup-detail");
-        setActiveTab("profile");
-    };
-
-    const handleTabChange = (tab: string) => {
-        setActiveTab(tab);
-    };
-
-    // Renderizar el contenido según la vista activa
-    const renderContent = () => {
-        if (!isMounted) return null; // No renderizar nada hasta que esté montado en cliente
-
-        switch (activeView) {
-            case "profile":
-                return (
-                    <div className="w-full">
-                        <div>
-                            <h1 className="text-2xl font-bold">Completa tu información</h1>
-                            <p className="text-muted-foreground">
-                                Para finalizar tu registro necesitamos algunos datos adicionales
-                            </p>
-                        </div>
-
-                        <div className="mt-6 bg-card p-6 rounded-lg shadow-sm border">
-                            <ProfileForm
-                                userEmail="usuario@ejemplo.com" // Añadir este prop
-                                onSubmit={(data) => console.log("Profile data:", data)}
-                            />
-                        </div>
-                    </div>
-                );
-
-            case "startups":
-                return (
-                    <StartupList
-                        startups={mockStartups}
-                        onSelectStartup={handleSelectStartup}
-                        onAddStartup={handleAddStartup}
-                    />
-                );
-
-            case "startup-detail":
-                return (
-                    <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                            <h1 className="text-2xl font-bold">
-                                {selectedStartupId && selectedStartupId !== "new"
-                                    ? `Editar Startup`
-                                    : "Nueva Startup"}
-                            </h1>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setActiveView("startups")}
-                            >
-                                Volver a startups
-                            </Button>
-                        </div>
-
-                        <TabsNavigation
-                            tabs={startupTabs}
-                            defaultValue={activeTab}
-                            onTabChange={handleTabChange}
-                        />
-
-                        {/* Contenido según el tab activo */}
-                        {activeTab === "profile" && (
-                            <StartupProfileForm
-                                onSubmit={(data) => console.log("Profile data:", data)}
-                            />
-                        )}
-
-                        {activeTab === "impact" && (
-                            <ImpactForm
-                                onSubmit={(data) => console.log("Impact data:", data)}
-                            />
-                        )}
-
-                        {activeTab === "metrics" && (
-                            <MetricsForm
-                                onSubmit={(data) => console.log("Metrics data:", data)}
-                            />
-                        )}
-                        {activeTab === "members" && (
-                            <MembersList
-                                startupId={selectedStartupId || undefined}
-                                onSubmit={(data) => console.log("Members data:", data)}
-                            />
-                        )}
-                    </div>
-                );
-
-            case "applications":
-                return (
-                    <ApplicationList
-                        startupId={selectedStartupId || undefined}
-                    />
-                );
-
-            default:
-                return null;
-        }
-    };
-
-    // Mostrar un placeholder simple durante el SSR o mientras se monta
-    if (!isMounted) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <p className="text-muted-foreground">Cargando...</p>
-            </div>
-        );
+    {
+      id: "3",
+      type: "user",
+      message: "Nuevo usuario registrado: carlos@edutech.com",
+      time: "6 horas atrás",
+      status: "new"
+    },
+    {
+      id: "4",
+      type: "evaluation",
+      message: "Evaluación pendiente requiere revisión: GreenEnergy",
+      time: "1 día atrás",
+      status: "pending"
     }
+  ]
+};
 
+export default function AdminDashboardPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
     return (
-        <Layout
-            activeView={activeView}
-            onSelectProfile={handleSelectProfile}
-            onSelectStartups={handleSelectStartups}
-            onSelectApplications={handleSelectApplications}
-        >
-            {renderContent()}
-        </Layout>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Cargando...</p>
+      </div>
     );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard de Administración</h1>
+          <p className="text-muted-foreground">
+            Resumen general del sistema y actividad reciente
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline">
+            <BarChart3 size={16} className="mr-2" />
+            Generar Reporte
+          </Button>
+          <Button>
+            <Plus size={16} className="mr-2" />
+            Nueva Convocatoria
+          </Button>
+        </div>
+      </div>
+
+      {/* Estadísticas principales */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Usuarios</p>
+                <p className="text-3xl font-bold">{mockStats.totalUsers}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Startups</p>
+                <p className="text-3xl font-bold">{mockStats.totalStartups}</p>
+              </div>
+              <Building2 className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Evaluaciones Pendientes</p>
+                <p className="text-3xl font-bold text-yellow-600">{mockStats.pendingEvaluations}</p>
+              </div>
+              <Clock className="h-8 w-8 text-yellow-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Convocatorias Activas</p>
+                <p className="text-3xl font-bold text-purple-600">{mockStats.activeConvocatorias}</p>
+              </div>
+              <Calendar className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Acciones rápidas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp size={20} />
+              Acciones Rápidas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Link href="/admin/evaluaciones">
+              <Button variant="outline" className="w-full justify-start">
+                <Eye size={16} className="mr-2" />
+                Revisar Evaluaciones Pendientes
+              </Button>
+            </Link>
+            <Link href="/admin/startups">
+              <Button variant="outline" className="w-full justify-start">
+                <Building2 size={16} className="mr-2" />
+                Gestionar Startups
+              </Button>
+            </Link>
+            <Link href="/admin/convocatorias">
+              <Button variant="outline" className="w-full justify-start">
+                <Calendar size={16} className="mr-2" />
+                Crear Nueva Convocatoria
+              </Button>
+            </Link>
+            <Link href="/admin/usuarios">
+              <Button variant="outline" className="w-full justify-start">
+                <Users size={16} className="mr-2" />
+                Ver Todos los Usuarios
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText size={20} />
+              Actividad Reciente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {mockStats.recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-1">
+                    {activity.status === "completed" && (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    )}
+                    {activity.status === "new" && (
+                      <Plus className="h-4 w-4 text-blue-600" />
+                    )}
+                    {activity.status === "pending" && (
+                      <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{activity.message}</p>
+                    <p className="text-xs text-muted-foreground">{activity.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Enlaces a secciones principales */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Link href="/admin/startups">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-8 w-8 text-blue-600" />
+                <div>
+                  <h3 className="font-semibold">Gestionar Startups</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Administra todas las startups del sistema
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/admin/evaluaciones">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <FileText className="h-8 w-8 text-green-600" />
+                <div>
+                  <h3 className="font-semibold">Evaluaciones</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Revisa y gestiona evaluaciones de startups
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/admin/convocatorias">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <Calendar className="h-8 w-8 text-purple-600" />
+                <div>
+                  <h3 className="font-semibold">Convocatorias</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Crea y gestiona convocatorias
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+    </div>
+  );
 }

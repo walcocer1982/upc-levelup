@@ -1,6 +1,6 @@
+import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { mockAuth } from "@/lib/mock-auth";
 
 // Función auxiliar para centralizar la lógica de control de acceso
 function hasAccess(path: string, role?: string, isRegistered?: boolean): boolean {
@@ -28,6 +28,7 @@ function hasAccess(path: string, role?: string, isRegistered?: boolean): boolean
 }
 
 export async function middleware(req: NextRequest) {
+  const session = await auth();
   const { pathname } = req.nextUrl;
   
   // Permitir acceso libre a la página principal y rutas de autenticación
@@ -35,15 +36,14 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Verificar autenticación mock
-  if (!mockAuth.isAuthenticated()) {
+  // Si no hay sesión, redirigir a la página principal
+  if (!session || !session.user) {
     return NextResponse.redirect(new URL('/', req.url));
   }
 
-  // Obtener información del usuario desde la sesión mock
-  const session = mockAuth.getSession();
-  const userRole = session?.user.role;
-  const isRegistered = session?.user.isRegistered;
+  // Obtener información del usuario desde la sesión (usando Auth.js v5)
+  const userRole = session.user.role;
+  const isRegistered = session.user.isRegistered;
 
   // Verificar acceso usando la función auxiliar
   if (!hasAccess(pathname, userRole, isRegistered)) {
@@ -68,4 +68,4 @@ export const config = {
     '/admin/:path*',    // Todas las rutas de administración
     '/denied',          // Página de acceso denegado
   ],
-};
+}; 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMockAuth } from '@/hooks/useMockAuth';
+import { useUserData } from '@/hooks/useUserData';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -21,56 +21,24 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useMediaQuery } from "@/hooks/general/useMediaQuery";
+import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-interface SidebarProps {
-  onSelectProfile?: () => void;
-  onSelectStartups?: () => void;
-  onSelectApplications?: () => void;
-  activeView?: string;
-}
-
-export default function Sidebar({
-  onSelectProfile,
-  onSelectStartups,
-  onSelectApplications,
-  activeView = "startups"
-}: SidebarProps) {
-  const { user, loading } = useMockAuth();
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { userData, loading } = useUserData();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const router = useRouter();
 
-  // Detectar si estamos en el área de admin
-  const isAdmin = pathname.startsWith('/admin');
-  
   // Cerrar el menú móvil al cambiar de ruta
   useEffect(() => {
     setIsMobileMenuOpen(false);
-  }, [pathname, activeView]);
-
-  // Menú para usuarios regulares
-  const userMenuItems = [
-    {
-      icon: <User size={20} />,
-      label: "Perfil",
-      onClick: onSelectProfile,
-      active: activeView === "profile"
-    },
-    {
-      icon: <Building2 size={20} />,
-      label: "Startups",
-      onClick: onSelectStartups,
-      active: activeView === "startups" || activeView === "startup-detail"
-    },
-    {
-      icon: <Calendar size={20} />,
-      label: "Convocatorias",
-      onClick: onSelectApplications,
-      active: activeView === "applications"
-    }
-  ];
+  }, [pathname]);
 
   // Menú para administradores
   const adminMenuItems = [
@@ -118,30 +86,25 @@ export default function Sidebar({
     }
   ];
 
-  const menuItems = isAdmin ? adminMenuItems : userMenuItems;
-
-  // Botón de toggle para móvil - visible solo en dispositivos pequeños
-  const mobileToggle = (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="md:hidden fixed top-4 left-4 z-50"
-      onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-      aria-label="Toggle menu"
-    >
-      {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-    </Button>
-  );
-
   const handleLogout = async () => {
-    // En modo mock, simplemente redirigir a la página principal
+    await signOut({ redirect: false });
     router.push("/");
   };
 
   return (
-    <>
-      {mobileToggle}
+    <div className="min-h-screen bg-background">
+      {/* Botón de toggle para móvil */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="md:hidden fixed top-4 left-4 z-50"
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        aria-label="Toggle menu"
+      >
+        {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+      </Button>
 
+      {/* Sidebar */}
       <div 
         className={cn(
           "transition-all duration-300 ease-in-out",
@@ -150,7 +113,7 @@ export default function Sidebar({
             ? isMobileMenuOpen 
               ? "fixed inset-y-0 left-0 z-40 w-64 shadow-lg transform translate-x-0" 
               : "fixed inset-y-0 left-0 z-40 w-64 shadow-lg transform -translate-x-full"
-            : "relative h-full w-64" // En desktop: sidebar fijo
+            : "fixed inset-y-0 left-0 z-40 w-64" // En desktop: sidebar fijo
         )}
       >
         <div className="h-full w-full border-r bg-card p-4 flex flex-col">
@@ -168,13 +131,10 @@ export default function Sidebar({
             ) : (
               <>
                 <h2 className="font-medium">
-                  {isAdmin ? 'Admin' : (user?.nombres || user?.apellidos 
-                    ? `${user.nombres || ''} ${user.apellidos || ''}`.trim()
-                    : 'Usuario'
-                  )}
+                  Admin
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {user?.email || 'usuario@ejemplo.com'}
+                  {userData?.email || 'admin@ejemplo.com'}
                 </p>
               </>
             )}
@@ -182,28 +142,11 @@ export default function Sidebar({
           
           <nav className="flex-1">
             <ul className="space-y-2">
-              {menuItems.map((item, index) => (
+              {adminMenuItems.map((item, index) => (
                 <li key={index}>
-                  {item.href ? (
-                    <Link href={item.href}>
-                      <Button
-                        variant="ghost" 
-                        className={cn(
-                          "w-full justify-start text-sm font-medium",
-                          item.active 
-                            ? "bg-primary text-primary-foreground font-medium"
-                            : "text-foreground hover:bg-muted/50"
-                        )}
-                      >
-                        <span className="mr-2">{item.icon}</span>
-                        <span>{item.label}</span>
-                        {item.active && <ChevronRight size={16} className="ml-auto" />}
-                      </Button>
-                    </Link>
-                  ) : (
+                  <Link href={item.href}>
                     <Button
-                      variant="ghost"
-                      onClick={item.onClick}
+                      variant="ghost" 
                       className={cn(
                         "w-full justify-start text-sm font-medium",
                         item.active 
@@ -213,19 +156,22 @@ export default function Sidebar({
                     >
                       <span className="mr-2">{item.icon}</span>
                       <span>{item.label}</span>
-                      {item.active && <ChevronRight size={16} className="ml-auto" />}
+                      {item.active && (
+                        <ChevronRight size={16} className="ml-auto" />
+                      )}
                     </Button>
-                  )}
+                  </Link>
                 </li>
               ))}
             </ul>
           </nav>
 
+          {/* Botón de cerrar sesión */}
           <div className="mt-auto pt-4 border-t">
             <Button
               variant="ghost"
-              onClick={handleLogout}
               className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={handleLogout}
             >
               <LogOut size={16} className="mr-2" />
               Cerrar sesión
@@ -233,14 +179,24 @@ export default function Sidebar({
           </div>
         </div>
       </div>
-      
-      {/* Overlay para cerrar el menú en móvil */}
-      {isMobileMenuOpen && isMobile && (
+
+      {/* Overlay para móvil */}
+      {isMobile && isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/20 z-30"
+          className="fixed inset-0 bg-black/50 z-30"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
-    </>
+
+      {/* Contenido principal */}
+      <div className={cn(
+        "transition-all duration-300 ease-in-out",
+        isMobile ? "ml-0" : "ml-64"
+      )}>
+        <main className="min-h-screen">
+          {children}
+        </main>
+      </div>
+    </div>
   );
-}
+} 

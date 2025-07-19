@@ -72,6 +72,12 @@ model Startup {
   @@map("startups")
 }
 
+model Evaluation {
+  id
+  startupId
+  
+}
+
 model Impact {
   id                    String  @id @default(cuid())
   startupId             String  @unique
