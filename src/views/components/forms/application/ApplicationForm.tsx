@@ -17,8 +17,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const necesidadesOptions = [
     { id: "ventas_b2b", label: "Ventas B2B" },
@@ -32,6 +34,7 @@ const necesidadesOptions = [
 ];
 
 const applicationSchema = z.object({
+    startupId: z.string().min(1, "Por favor selecciona una startup"),
     solucion: z.string().min(10, "Por favor describe tu solución con más detalle"),
     razonIngreso: z.string().min(10, "Por favor proporciona una razón válida"),
     necesidades: z.array(z.string()).nonempty({
@@ -44,22 +47,39 @@ const applicationSchema = z.object({
 
 type ApplicationFormValues = z.infer<typeof applicationSchema>;
 
+interface Startup {
+    id: string;
+    nombre: string;
+    descripcion: string;
+    etapa: string;
+    categoria: string;
+    rol: string;
+}
+
 interface ApplicationFormProps {
+    applicationId: string; // ID de la convocatoria a la que se postula
     initialData?: Partial<ApplicationFormValues>;
     onSubmit: (data: ApplicationFormValues) => void;
     onCancel: () => void;
 }
 
 export default function ApplicationForm({
+    applicationId,
     initialData,
     onSubmit,
     onCancel
 }: ApplicationFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [startups, setStartups] = useState<Startup[]>([]);
+    const [isLoadingStartups, setIsLoadingStartups] = useState(true);
+
+    console.log("🔍 ApplicationForm - Props recibidas:");
+    console.log("  - applicationId:", applicationId);
 
     const form = useForm<ApplicationFormValues>({
         resolver: zodResolver(applicationSchema),
         defaultValues: initialData || {
+            startupId: "",
             solucion: "",
             razonIngreso: "",
             necesidades: [],
@@ -72,18 +92,119 @@ export default function ApplicationForm({
     // Observar el valor del radio button para mostrar campos condicionales
     const participacionPrevia = form.watch("participacionPrevia");
 
-    const handleSubmit = (data: ApplicationFormValues) => {
+    // Cargar startups del usuario
+    useEffect(() => {
+        const fetchStartups = async () => {
+            console.log("🔄 ApplicationForm - Cargando startups del usuario");
+            setIsLoadingStartups(true);
+
+            try {
+                const response = await fetch('/api/users/startups');
+                const data = await response.json();
+
+                console.log("📨 ApplicationForm - Respuesta startups:", data);
+
+                if (response.ok) {
+                    console.log("✅ ApplicationForm - Startups cargadas:", data.startups.length);
+                    setStartups(data.startups || []);
+                } else {
+                    console.error("❌ ApplicationForm - Error al cargar startups:", data.error);
+                    toast.error(data.error || "Error al cargar las startups");
+                    setStartups([]);
+                }
+            } catch (error) {
+                console.error("💥 ApplicationForm - Error en petición startups:", error);
+                toast.error("Error al cargar las startups");
+                setStartups([]);
+            } finally {
+                setIsLoadingStartups(false);
+            }
+        };
+
+        fetchStartups();
+    }, []);
+
+    const handleSubmit = async (data: ApplicationFormValues) => {
+        console.log("📝 ApplicationForm - handleSubmit - Datos:", data);
         setIsSubmitting(true);
 
-        setTimeout(() => {
-            onSubmit(data);
+        try {
+            const response = await fetch(`/api/applications/${applicationId}/apply`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            const result = await response.json();
+            console.log("📨 ApplicationForm - Respuesta del servidor:", result);
+
+            if (response.ok) {
+                console.log("✅ ApplicationForm - Postulación enviada exitosamente");
+                toast.success(result.message || "Postulación enviada exitosamente");
+                onSubmit(data);
+            } else {
+                console.error("❌ ApplicationForm - Error del servidor:", result.error);
+                toast.error(result.error || "Error al enviar la postulación");
+            }
+        } catch (error) {
+            console.error("💥 ApplicationForm - Error en petición:", error);
+            toast.error("Error al enviar la postulación");
+        } finally {
             setIsSubmitting(false);
-        }, 500);
+        }
     };
 
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
+                {/* ✅ NUEVO: Selector de startup */}
+                <FormField
+                    control={form.control}
+                    name="startupId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Elegir startup <span className="text-destructive">*</span></FormLabel>
+                            <FormDescription>
+                                Selecciona la startup con la que quieres postular a esta convocatoria
+                            </FormDescription>
+                            <Select 
+                                onValueChange={field.onChange} 
+                                defaultValue={field.value}
+                                disabled={isLoadingStartups}
+                            >
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue 
+                                            placeholder={
+                                                isLoadingStartups 
+                                                    ? "Cargando startups..." 
+                                                    : startups.length === 0 
+                                                        ? "No tienes startups disponibles"
+                                                        : "Selecciona una startup"
+                                            } 
+                                        />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {startups.map((startup) => (
+                                        <SelectItem key={startup.id} value={startup.id}>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">{startup.nombre}</span>
+                                                <span className="text-sm text-muted-foreground">
+                                                    {startup.etapa} • {startup.categoria} • Tu rol: {startup.rol}
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
                 <FormField
                     control={form.control}
                     name="solucion"
@@ -248,7 +369,7 @@ export default function ApplicationForm({
                     </Button>
                     <Button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || startups.length === 0}
                     >
                         {isSubmitting ? "Enviando..." : "Enviar postulación"}
                     </Button>

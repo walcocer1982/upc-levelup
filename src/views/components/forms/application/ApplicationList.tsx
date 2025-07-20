@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ApplicationCard from "./ApplicationCard";
 import PastApplications from "./PastApplications";
 import ApplicationForm from "@/views/components/forms/application/ApplicationForm";
@@ -12,76 +12,90 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 
-// Datos de ejemplo para las convocatorias activas
-const mockApplications = [
-  {
-    id: "1",
-    nombre: "Inqubalab",
-    fechaInicio: "2025-07-01",
-    fechaFin: "2025-08-15",
-    descripcion: "Programa de incubación para startups en etapa temprana con duración de 3 meses."
-  },
-  {
-    id: "2",
-    nombre: "Aceleración",
-    fechaInicio: "2025-06-15",
-    fechaFin: "2025-07-20",
-    descripcion: "Programa intensivo para startups con MVP validado buscando escalar su modelo de negocio."
-  },
-];
-
-// Datos de ejemplo para postulaciones pasadas
-const mockPastApplications = [
-  {
-    id: "101",
-    convocatoriaNombre: "Inqubalab 2024-1",
-    fechaPostulacion: "2024-02-10",
-    estado: "aceptado",
-    startupId: "1"
-  },
-  {
-    id: "102",
-    convocatoriaNombre: "Aceleración 2024-1",
-    fechaPostulacion: "2024-04-15",
-    estado: "en_revision",
-    startupId: "2"
-  }
-];
+interface Application {
+  id: string;
+  tipo: string;
+  fechaInicio: string;
+  fechaFin: string;
+  creadoPor: string;
+  postulaciones: number;
+}
 
 interface ApplicationListProps {
   startupId?: string;
 }
 
 export default function ApplicationList({ startupId }: ApplicationListProps) {
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [isLoadingApplications, setIsLoadingApplications] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
-  
-  // Filtrar postulaciones pasadas por startupId
-  const filteredPastApplications = startupId 
-    ? mockPastApplications.filter(app => app.startupId === startupId)
-    : [];
+
+  console.log("🔍 ApplicationList - Props recibidas:");
+  console.log("  - startupId:", startupId);
+
+  // Cargar convocatorias activas
+  useEffect(() => {
+    const fetchApplications = async () => {
+      console.log("🔄 ApplicationList - Cargando convocatorias activas");
+      setIsLoadingApplications(true);
+
+      try {
+        const response = await fetch('/api/applications');
+        const data = await response.json();
+
+        console.log("📨 ApplicationList - Respuesta convocatorias:", data);
+
+        if (response.ok) {
+          console.log("✅ ApplicationList - Convocatorias cargadas:", data.applications.length);
+          setApplications(data.applications || []);
+        } else {
+          console.error("❌ ApplicationList - Error al cargar convocatorias:", data.error);
+          toast.error(data.error || "Error al cargar las convocatorias");
+          setApplications([]);
+        }
+      } catch (error) {
+        console.error("💥 ApplicationList - Error en petición convocatorias:", error);
+        toast.error("Error al cargar las convocatorias");
+        setApplications([]);
+      } finally {
+        setIsLoadingApplications(false);
+      }
+    };
+
+    fetchApplications();
+  }, []);
   
   const handleApply = (id: string) => {
+    console.log("📝 ApplicationList - Iniciando postulación para convocatoria:", id);
     setSelectedApplicationId(id);
     setIsFormOpen(true);
   };
   
   const handleFormSubmit = (data: any) => {
-    console.log("Application submitted:", data);
-    console.log("For application ID:", selectedApplicationId);
-    console.log("For startup ID:", startupId);
+    console.log("✅ ApplicationList - Postulación enviada exitosamente:", data);
+    console.log("📋 ApplicationList - Para convocatoria ID:", selectedApplicationId);
+    console.log("📋 ApplicationList - Para startup ID:", startupId);
     setIsFormOpen(false);
+    setSelectedApplicationId(null);
+    
+    // Recargar convocatorias para actualizar contador de postulaciones
+    // No es necesario hacer fetch aquí, el ApplicationForm ya maneja la respuesta
   };
 
   const handleCloseForm = () => {
+    console.log("❌ ApplicationList - Formulario cerrado sin enviar");
     setIsFormOpen(false);
+    setSelectedApplicationId(null);
   };
 
   // Obtener el nombre de la convocatoria seleccionada
   const getSelectedApplicationName = () => {
-    const app = mockApplications.find(app => app.id === selectedApplicationId);
-    return app ? app.nombre : "Convocatoria";
+    const app = applications.find(app => app.id === selectedApplicationId);
+    if (!app) return "Convocatoria";
+    return app.tipo === 'Aceleracion' ? 'Aceleración' : app.tipo;
   };
 
   return (
@@ -93,27 +107,43 @@ export default function ApplicationList({ startupId }: ApplicationListProps) {
         </p>
       </div>
 
-      {/* Grid de convocatorias activas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {mockApplications.map((application) => (
-          <ApplicationCard 
-            key={application.id}
-            application={application}
-            onApply={handleApply}
-          />
-        ))}
-      </div>
+      {/* Loading de convocatorias */}
+      {isLoadingApplications ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="h-48 bg-muted animate-pulse rounded-lg"></div>
+          <div className="h-48 bg-muted animate-pulse rounded-lg"></div>
+        </div>
+      ) : applications.length > 0 ? (
+        /* Grid de convocatorias activas */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {applications.map((application) => (
+            <ApplicationCard 
+              key={application.id}
+              application={application}
+              onApply={handleApply}
+            />
+          ))}
+        </div>
+      ) : (
+        /* Sin convocatorias activas */
+        <div className="text-center py-8">
+          <p className="text-muted-foreground text-lg">No hay convocatorias activas en este momento</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Las convocatorias aparecerán aquí cuando estén disponibles para postulación
+          </p>
+        </div>
+      )}
 
       {/* Sección de postulaciones anteriores */}
       <div className="mt-8">
         <PastApplications 
-          applications={filteredPastApplications} 
+          startupId={startupId}
         />
       </div>
 
       {/* Dialog para formulario de postulación */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               Postulación a {getSelectedApplicationName()}
@@ -136,10 +166,13 @@ export default function ApplicationList({ startupId }: ApplicationListProps) {
             </p>
           </div>
           
-          <ApplicationForm 
-            onSubmit={handleFormSubmit} 
-            onCancel={handleCloseForm}
-          />
+          {selectedApplicationId && (
+            <ApplicationForm 
+              applicationId={selectedApplicationId}
+              onSubmit={handleFormSubmit} 
+              onCancel={handleCloseForm}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

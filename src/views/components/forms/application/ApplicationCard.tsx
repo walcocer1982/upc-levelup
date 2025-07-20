@@ -9,11 +9,11 @@ import { CalendarIcon } from "lucide-react";
 interface ApplicationCardProps {
   application: {
     id: string;
-    nombre: string; // "Inqubalab" o "Aceleración"
+    tipo: string; // "Inqubalab" o "Aceleracion"
     fechaInicio: string;
     fechaFin: string;
-    descripcion: string;
-    estado?: "activo" | "inactivo" | "proximo";
+    creadoPor?: string;
+    postulaciones?: number;
   };
   onApply: (id: string) => void;
   className?: string;
@@ -43,11 +43,25 @@ export default function ApplicationCard({
     return new Date(dateString).toLocaleDateString('es-ES', options);
   };
 
+  // Obtener descripción según el tipo
+  const getDescription = (tipo: string) => {
+    switch(tipo) {
+      case 'Inqubalab':
+        return 'Programa de incubación para startups en etapa temprana con duración de 3 meses.';
+      case 'Aceleracion':
+        return 'Programa intensivo para startups con MVP validado buscando escalar su modelo de negocio.';
+      default:
+        return 'Programa de desarrollo empresarial para startups.';
+    }
+  };
+
   return (
     <Card className={cn("h-full flex flex-col transition-all hover:shadow-md", className)}>
       <CardContent className="flex-grow p-4 sm:p-6">
         <div className="flex justify-between items-start mb-2">
-          <h3 className="font-semibold text-lg">{application.nombre}</h3>
+          <h3 className="font-semibold text-lg">
+            {application.tipo === 'Aceleracion' ? 'Aceleración' : application.tipo}
+          </h3>
           <Badge 
             variant={isActive() ? "default" : "secondary"}
             className={cn(
@@ -59,7 +73,9 @@ export default function ApplicationCard({
           </Badge>
         </div>
         
-        <p className="text-sm text-muted-foreground mb-4">{application.descripcion}</p>
+        <p className="text-sm text-muted-foreground mb-4">
+          {getDescription(application.tipo)}
+        </p>
         
         <div className="space-y-1.5 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -70,6 +86,11 @@ export default function ApplicationCard({
             <CalendarIcon className="h-4 w-4" />
             <span>Cierre: {formatDate(application.fechaFin)}</span>
           </div>
+          {application.postulaciones !== undefined && (
+            <div className="text-xs text-muted-foreground mt-2">
+              {application.postulaciones} postulaciones recibidas
+            </div>
+          )}
         </div>
       </CardContent>
       
