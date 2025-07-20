@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 // Esquema para validación del formulario
 const memberSchema = z.object({
@@ -34,11 +35,17 @@ type MemberFormValues = z.infer<typeof memberSchema>;
 interface MembersFormProps {
   onSubmit: (data: any) => void;
   initialData?: any;
+  startupId?: string;
 }
 
-export default function MembersForm({ onSubmit, initialData }: MembersFormProps) {
+export default function MembersForm({ onSubmit, initialData, startupId }: MembersFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [charCount, setCharCount] = useState(initialData?.biografia?.length || 0);
+
+  console.log("🔍 MembersForm - Props recibidas:");
+  console.log("  - startupId:", startupId);
+  console.log("  - startupId type:", typeof startupId);
+  console.log("  - initialData:", initialData);
 
   // Usar initialData si está disponible
   const form = useForm<MemberFormValues>({
@@ -55,20 +62,57 @@ export default function MembersForm({ onSubmit, initialData }: MembersFormProps)
     },
   });
 
-  const handleSubmit = (data: MemberFormValues) => {
-    setIsSubmitting(true);
+    useEffect(() => {
+    console.log("🔄 MembersForm - startupId cambió:", startupId);
+  }, [startupId]);
+
+  const handleSubmit = async (data: MemberFormValues) => {
+    console.log("🚀 MembersForm - handleSubmit iniciado");
+    console.log("📝 startupId en handleSubmit:", startupId);
     
-    // Simular envío con un pequeño retraso
-    setTimeout(() => {
-      onSubmit(data);
-      setIsSubmitting(false);
-      
-      // Solo resetear si no hay datos iniciales (es un nuevo registro)
-      if (!initialData) {
+    if (!startupId) {
+      console.error("❌ No se proporcionó startupId");
+      toast.error("ID de startup no encontrado");
+      return;
+    }
+
+    console.log("📝 Enviando datos del miembro:", JSON.stringify(data, null, 2));
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`/api/startups/${startupId}/members`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+      console.log("📨 Respuesta del servidor:", result);
+
+      if (response.ok) {
+        console.log("✅ Miembro agregado exitosamente");
+        toast.success(result.message || "Miembro agregado exitosamente");
+        
+        // Llamar al onSubmit del padre
+        onSubmit(result.member);
+        
+        // Resetear el formulario
         form.reset();
         setCharCount(0);
+        
+        console.log("🔄 Formulario reseteado");
+      } else {
+        console.error("❌ Error del servidor:", result.error);
+        toast.error(result.error || "Error al agregar el miembro");
       }
-    }, 500);
+    } catch (error) {
+      console.error("💥 Error en la petición:", error);
+      toast.error("Error al agregar el miembro");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -242,9 +286,7 @@ export default function MembersForm({ onSubmit, initialData }: MembersFormProps)
               >
                 {isSubmitting 
                   ? "Guardando..." 
-                  : initialData 
-                    ? "Actualizar integrante" 
-                    : "Agregar integrante"}
+                  : "Guardar información"}
               </Button>
             </div>
           </form>

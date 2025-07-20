@@ -27,14 +27,20 @@ export default function MemberCard({
   className
 }: MemberCardProps) {
   // Obtener iniciales para el avatar fallback
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-  };
+const getInitials = (name: string) => {
+  // Agregar validación para evitar el error
+  if (!name || typeof name !== 'string') {
+    console.log("❌ getInitials - nombre inválido:", name);
+    return "??";
+  }
+  
+  return name
+    .split(' ')
+    .map(part => part[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+};
 
   return (
     <Card className={cn("h-full flex flex-col transition-all hover:shadow-md", className)}>
