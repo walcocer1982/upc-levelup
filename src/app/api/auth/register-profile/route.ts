@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { mockAuth } from "@/lib/mock-auth";
+import { getMockData } from "@/data/mock";
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🔍 POST request iniciado");
+    console.log("🔍 POST request iniciado (MOCK)");
     
-    // Verificar que el usuario esté autenticado
-    const session = await auth();
-    console.log("📋 Session:", session);
+    // Verificar que el usuario esté autenticado (mock)
+    const session = mockAuth.getSession();
+    console.log("📋 Session (MOCK):", session);
     
     if (!session || !session.user || !session.user.email) {
-      console.log("❌ No hay sesión válida");
+      console.log("❌ No hay sesión válida (MOCK)");
       return NextResponse.json(
         { error: "No autorizado" },
         { status: 401 }
       );
     }
 
-    console.log("✅ Usuario autenticado:", session.user.email);
+    console.log("✅ Usuario autenticado (MOCK):", session.user.email);
 
     // Obtener datos del cuerpo de la petición
     const body = await request.json();
@@ -61,44 +61,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("🔍 Verificando DNI duplicado...");
-    // Verificar si el DNI ya existe (para otro usuario)
-    const existingUserWithDni = await prisma.user.findFirst({
-      where: {
-        dni: dni,
-        email: { not: session.user.email },
-      },
-    });
+    console.log("🔍 Verificando DNI duplicado (MOCK)...");
+    // Verificar si el DNI ya existe (para otro usuario) en datos mock
+    const allUsers = getMockData.getAllUsers();
+    const existingUserWithDni = allUsers.find(user => 
+      user.dni === dni && user.email !== session.user.email
+    );
 
     if (existingUserWithDni) {
-      console.log("❌ DNI duplicado para otro usuario");
+      console.log("❌ DNI duplicado para otro usuario (MOCK)");
       return NextResponse.json(
         { error: "El DNI ya está registrado por otro usuario" },
         { status: 409 }
       );
     }
 
-    console.log("🔍 Buscando usuario actual...");
-    // Buscar el usuario actual
-    const currentUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
+    console.log("🔍 Buscando usuario actual (MOCK)...");
+    // Buscar el usuario actual en datos mock
+    const currentUser = getMockData.getUserByEmail(session.user.email);
 
     if (!currentUser) {
-      console.log("❌ Usuario no encontrado en BD");
+      console.log("❌ Usuario no encontrado en BD (MOCK)");
       return NextResponse.json(
         { error: "Usuario no encontrado" },
         { status: 404 }
       );
     }
 
-    console.log("✅ Usuario encontrado:", currentUser.id);
+    console.log("✅ Usuario encontrado (MOCK):", currentUser.id);
 
-    console.log("🔄 Actualizando perfil...");
-    // Actualizar el perfil del usuario
-    const updatedUser = await prisma.user.update({
-      where: { email: session.user.email },
-      data: {
+    console.log("🔄 Actualizando perfil (MOCK)...");
+    // Simular actualización del perfil del usuario
+    const updatedUser = {
+      ...currentUser,
         nombres,
         apellidos,
         dni,
@@ -108,10 +103,10 @@ export async function POST(request: NextRequest) {
         biografia,
         haAceptadoPolitica,
         isRegistered: true, // Marcar como registrado
-      },
-    });
+      updatedAt: new Date(),
+    };
 
-    console.log("✅ Perfil actualizado exitosamente");
+    console.log("✅ Perfil actualizado exitosamente (MOCK)");
 
     return NextResponse.json({
       message: "Perfil actualizado exitosamente",
@@ -130,7 +125,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("💥 Error en POST /api/auth/register-profile:", error);
+    console.error("💥 Error en POST /api/auth/register-profile (MOCK):", error);
     console.error("Stack trace:", error.stack);
     return NextResponse.json(
       { 
@@ -144,59 +139,41 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 GET request iniciado");
+    console.log("🔍 GET request iniciado (MOCK)");
     
-    // Verificar que el usuario esté autenticado
-    const session = await auth();
-    console.log("📋 Session:", session);
+    // Verificar que el usuario esté autenticado (mock)
+    const session = mockAuth.getSession();
+    console.log("📋 Session (MOCK):", session);
     
     if (!session || !session.user || !session.user.email) {
-      console.log("❌ No hay sesión válida");
+      console.log("❌ No hay sesión válida (MOCK)");
       return NextResponse.json(
         { error: "No autorizado" },
         { status: 401 }
       );
     }
 
-    console.log("✅ Usuario autenticado:", session.user.email);
+    console.log("✅ Usuario autenticado (MOCK):", session.user.email);
 
-    console.log("🔍 Buscando usuario en BD...");
-    // Buscar el usuario actual
-    const currentUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: {
-        id: true,
-        email: true,
-        nombres: true,
-        apellidos: true,
-        dni: true,
-        telefono: true,
-        correoLaureate: true,
-        linkedin: true,
-        biografia: true,
-        role: true,
-        haAceptadoPolitica: true,
-        isRegistered: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    console.log("🔍 Buscando usuario en BD (MOCK)...");
+    // Buscar el usuario actual en datos mock
+    const currentUser = getMockData.getUserByEmail(session.user.email);
 
     if (!currentUser) {
-      console.log("❌ Usuario no encontrado en BD");
+      console.log("❌ Usuario no encontrado en BD (MOCK)");
       return NextResponse.json(
         { error: "Usuario no encontrado" },
         { status: 404 }
       );
     }
 
-    console.log("✅ Usuario encontrado:", currentUser.id);
+    console.log("✅ Usuario encontrado (MOCK):", currentUser.id);
 
     return NextResponse.json({
       user: currentUser,
     });
   } catch (error) {
-    console.error("💥 Error en GET /api/auth/register-profile:", error);
+    console.error("💥 Error en GET /api/auth/register-profile (MOCK):", error);
     console.error("Stack trace:", error.stack);
     return NextResponse.json(
       { 

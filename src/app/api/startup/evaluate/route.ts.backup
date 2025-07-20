@@ -1,5 +1,5 @@
-import { openai, generateEmbedding } from './openai-config';
-import { FormResponses, EvaluationScore, LocalEvaluation, localStorageManager } from './local-storage';
+import { NextRequest, NextResponse } from 'next/server';
+import { openai } from '@/lib/ai/openai-config';
 
 // Prompts base para cada criterio
 const basePrompts = {
@@ -53,13 +53,11 @@ Califica de 0-100 donde:
 };
 
 // Función para evaluar un criterio específico
-export async function evaluarCriterio(
+async function evaluarCriterio(
   criterio: keyof typeof basePrompts,
   respuestas: Record<string, string>
-): Promise<EvaluationScore> {
+) {
   try {
-
-    
     // Combinar respuestas en un texto
     const textoRespuestas = Object.entries(respuestas)
       .map(([key, value]) => `${key}: ${value}`)
@@ -117,14 +115,9 @@ export async function evaluarCriterio(
 
 // Función para generar observaciones y recomendaciones
 async function generarObservaciones(
-  scores: EvaluationScore[],
+  scores: any[],
   startupName: string
-): Promise<{
-  observations: string[];
-  recommendations: string[];
-  strengths: string[];
-  weaknesses: string[];
-}> {
+) {
   try {
     const scoresSummary = scores.map(s => 
       `${s.criterioId}: ${s.score}/100 - ${s.razones.substring(0, 100)}...`
@@ -172,15 +165,20 @@ Devuelve SOLO JSON con el formato:
   }
 }
 
-// Función principal para evaluar una startup completa
-export async function evaluarStartupLocal(startupId: string): Promise<LocalEvaluation | null> {
+export async function POST(request: NextRequest) {
   try {
-    // Obtener las respuestas de la startup
-    const respuestas = localStorageManager.getResponseById(startupId);
+    const body = await request.json();
+    const { startupId, startupName, respuestas } = body;
+
     if (!respuestas) {
-      throw new Error(`No se encontraron respuestas para la startup con ID ${startupId}`);
+      return NextResponse.json(
+        { error: 'No se proporcionaron respuestas para evaluar' },
+        { status: 400 }
+      );
     }
-    
+
+    console.log('Iniciando evaluación IA para:', startupName);
+
     // Evaluar cada criterio
     const complejidadScore = await evaluarCriterio('complejidad', respuestas.complejidad);
     const mercadoScore = await evaluarCriterio('mercado', respuestas.mercado);
@@ -194,62 +192,33 @@ export async function evaluarStartupLocal(startupId: string): Promise<LocalEvalu
     
     // Generar observaciones y recomendaciones
     const { observations, recommendations, strengths, weaknesses } = 
-      await generarObservaciones(scores, respuestas.startupName);
+      await generarObservaciones(scores, startupName);
     
     // Crear evaluación
-    const evaluacion: Omit<LocalEvaluation, 'id' | 'createdAt'> = {
+    const evaluacion = {
       startupId,
-      startupName: respuestas.startupName,
+      startupName,
       scores,
       totalScore,
       observations,
       recommendations,
       strengths,
-      weaknesses
+      weaknesses,
+      createdAt: new Date().toISOString()
     };
-    
-    // Guardar evaluación
-    const evaluacionId = localStorageManager.saveEvaluation(evaluacion);
-    
-    // Devolver la evaluación completa
-    return localStorageManager.getEvaluationById(evaluacionId);
-  } catch (error) {
-    console.error("Error evaluando startup:", error);
-    return null;
-  }
-}
 
-// Función para generar datos de ejemplo para pruebas
-export function generarDatosEjemplo() {
-  // Respuestas de ejemplo
-  const respuestasEjemplo = {
-    startupName: "EcoDeliver",
-    complejidad: {
-      casoReal: "La cadena de restaurantes 'El Buen Sabor' perdía aproximadamente el 20% de sus entregas debido a retrasos y problemas de coordinación con repartidores independientes.",
-      abordajePrevio: "Utilizaban un grupo de WhatsApp para coordinar entregas y Excel para hacer seguimiento. No tenían forma de predecir demanda ni optimizar rutas.",
-      consecuencias: "Pérdidas mensuales de S/5,000 en pedidos cancelados, clientes insatisfechos, y repartidores frustrados por rutas ineficientes. Rating en apps de delivery bajó a 3.5 estrellas.",
-      identificacionAfectados: "Hemos identificado más de 200 restaurantes en Lima con problemas similares. En promedio pierden 15-25% de sus pedidos por mala coordinación."
-    },
-    mercado: {
-      tamanoMercado: "En Lima existen más de 20,000 restaurantes que hacen delivery, de los cuales 5,000 son nuestro mercado objetivo inicial (restaurantes medianos con 20+ pedidos diarios).",
-      validacionClientes: "Hemos entrevistado a 50 dueños de restaurantes, 15 nos permitieron hacer pruebas piloto con su operación actual.",
-      interesPago: "12 restaurantes firmaron carta de intención para usar nuestro servicio cuando esté listo. Dispuestos a pagar entre S/299-499 mensual según volumen.",
-      segmentoInteres: "Restaurantes medianos (20-100 pedidos/día) en zonas urbanas de Lima, especialmente pollerías, chifas y comida criolla con delivery propio."
-    },
-    escalabilidad: {
-      estrategiaAdquisicion: "1. Programa de referidos con restaurantes piloto\n2. Alianzas con asociaciones de restaurantes\n3. Equipo de ventas directa con demos in-situ\n4. Marketing digital enfocado en dolor points específicos",
-      costoAdquisicion: "CAC estimado: S/1,200 por restaurante\n- Demo y visitas: S/300\n- Marketing digital: S/400\n- Comisión vendedor: S/500\nTiempo promedio de cierre: 3 semanas",
-      facilidadExpansion: "Modelo altamente escalable:\n- Software cloud-based\n- Onboarding automatizado\n- Soporte remoto\n- Costos marginales bajos por cliente adicional",
-      estrategiasProbadas: "Piloto con 5 restaurantes mostró:\n- Reducción 40% en tiempo de coordinación\n- Aumento 25% en entregas exitosas\n- ROI positivo en 2 meses para clientes"
-    },
-    equipo: {
-      trayectoriaEquipo: "El equipo fundador lleva 8 meses trabajando juntos en este proyecto. Nos conocimos en un hackathon de logística donde ganamos el primer puesto.",
-      experienciaRelevante: "- CEO: 5 años en gestión de operaciones de delivery\n- CTO: Desarrollador senior, ex-Rappi\n- COO: 8 años administrando restaurantes\n- Lead Dev: Especialista en optimización de rutas",
-      rolesResponsabilidades: "Roles claramente definidos:\n- CEO: Estrategia y ventas\n- CTO: Desarrollo producto\n- COO: Operaciones y soporte\n- Lead Dev: Arquitectura técnica\nReuniones diarias de coordinación",
-      superacionDesafios: "Durante el piloto inicial, tuvimos problemas de adopción con repartidores. Rediseñamos la UX basados en feedback, creamos programa de capacitación, y aumentamos adopción de 40% a 95% en 3 semanas."
-    }
-  };
-  
-  // Guardar respuestas de ejemplo
-  return localStorageManager.saveResponses(respuestasEjemplo);
+    console.log('Evaluación IA completada exitosamente');
+
+    return NextResponse.json({
+      success: true,
+      evaluation: evaluacion
+    });
+
+  } catch (error) {
+    console.error('Error en la evaluación IA:', error);
+    return NextResponse.json(
+      { error: 'Error durante la evaluación IA' },
+      { status: 500 }
+    );
+  }
 } 

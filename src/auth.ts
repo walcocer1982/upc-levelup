@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { DefaultSession } from "next-auth";
-import { prisma } from "@/lib/prisma"; // Cambiar esta línea
+import { getMockData } from "@/data/mock";
 
 // Extender tipos para Auth.js v5
 declare module "next-auth" {
@@ -36,31 +36,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Si es la primera vez que se genera el token (login)
       if (user && account) {
         try {
-          // Verificar si el usuario existe en la base de datos
-          let dbUser = await prisma.user.findUnique({
-            where: { email: user.email! },
-          });
+          // Verificar si el usuario existe en los datos mock
+          let dbUser = getMockData.getUserByEmail(user.email!);
 
-          // Si no existe el usuario, crearlo automáticamente
+          // Si no existe el usuario, crear uno simulado
           if (!dbUser) {
-            dbUser = await prisma.user.create({
-              data: {
+            // Simular creación de usuario
+            dbUser = {
+              id: `user-${Date.now()}`,
                 email: user.email!,
-                nombres: user.name?.split(" ")[0] || null,
-                apellidos: user.name?.split(" ").slice(1).join(" ") || null,
-                role: user.email === "m.limaco0191@gmail.com" ? "admin" : "usuario",
+              nombres: user.name?.split(" ")[0] || "",
+              apellidos: user.name?.split(" ").slice(1).join(" ") || "",
+              role: user.email === "walcocer.1982@gmail.com" ? "ADMIN" : "FUNDADOR",
                 haAceptadoPolitica: false,
                 isRegistered: false,
-              },
-            });
-            console.log("Nuevo usuario creado:", dbUser.email);
+              createdAt: new Date(),
+              updatedAt: new Date()
+            };
+            console.log("Nuevo usuario simulado creado:", dbUser.email);
           }
           
           // Determinar si está registrado
           const isRegistered = !!dbUser?.isRegistered;
           
-          // Determinar el rol basado en la base de datos o email específico
-          const isAdmin = user.email === "m.limaco0191@gmail.com";
+          // Determinar el rol basado en los datos mock o email específico
+          const isAdmin = user.email === "walcocer.1982@gmail.com";
           const role = dbUser?.role || (isAdmin ? "admin" : "usuario");
 
           // Añadir información adicional al token
@@ -68,11 +68,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.isRegistered = isRegistered;
           token.userId = dbUser?.id;
 
-          console.log("Token generado:", token); // Depuración
+          console.log("Token generado (MOCK):", token); // Depuración
         } catch (error) {
-          console.error("Error verificando/creando usuario:", error);
+          console.error("Error verificando/creando usuario (MOCK):", error);
           // Si hay error, establecer valores predeterminados
-          token.role = user.email === "m.limaco0191@gmail.com" ? "admin" : "usuario";
+          token.role = user.email === "walcocer.1982@gmail.com" ? "admin" : "usuario";
           token.isRegistered = false;
         }
       }
@@ -96,57 +96,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
 
-    // Registrar login/signup en callback signIn
+    // Registrar login/signup en callback signIn (MOCK)
     async signIn({ user, account }) {
       try {
-        let dbUser;
-        let isNewUser = false;
-        
-        try {
-          // Buscar usuario en la base de datos
-          dbUser = await prisma.user.findUnique({
-            where: { email: user.email! },
-          });
-
-          // Si no existe, se creará en el callback jwt, pero marcamos como nuevo
-          if (!dbUser) {
-            isNewUser = true;
-          }
-        } catch (dbError) {
-          console.error("Error buscando usuario en DB:", dbError);
-        }
-
-        // Determinar si es login o registro inicial
+        // Simular búsqueda de usuario en datos mock
+        const dbUser = getMockData.getUserByEmail(user.email!);
+        const isNewUser = !dbUser;
         const action = isNewUser ? 'signup' : 'login';
         
-        try {
-          // Si es un usuario nuevo, esperamos un poco para que se cree en jwt callback
-          if (isNewUser) {
-            // Pequeña espera para asegurar que el usuario se cree en jwt callback
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            // Buscar nuevamente el usuario recién creado
-            dbUser = await prisma.user.findUnique({
-              where: { email: user.email! },
-            });
-          }
-
-          // Registrar evento de sesión
-          await prisma.sessionLog.create({
-            data: {
-              userId: dbUser?.id || 'new_user',
-              email: user.email!,
-              action,
-              provider: account?.provider || 'unknown',
-            }
-          });
-          
-          console.log(`${action.toUpperCase()} registrado para usuario:`, user.email);
-        } catch (logError) {
-          console.error("Error registrando sesión:", logError);
-        }
+        console.log(`${action.toUpperCase()} simulado para usuario:`, user.email);
+        
+        // No necesitamos registrar en base de datos real
+        console.log("Evento de sesión simulado (MOCK)");
       } catch (error) {
-        console.error(`Error en el proceso de autenticación:`, error);
+        console.error(`Error en el proceso de autenticación (MOCK):`, error);
       }
 
       return true; // Continuar con el proceso de autenticación
