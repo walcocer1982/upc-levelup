@@ -11,7 +11,6 @@ import MetricsForm from "@/views/components/forms/startup/MetricsForm";
 import MembersList from "@/views/components/dashboard/startup/MembersList";
 import ApplicationList from "@/views/components/forms/application/ApplicationList"; // Corregido el path
 import { Button } from "@/components/ui/button";
-import { getMockData } from "@/data/mock";
 
 // Definir las pestañas para la navegación de startup
 const startupTabs = [
@@ -21,7 +20,27 @@ const startupTabs = [
     { id: "members", label: "Integrantes" }
 ];
 
-
+// Datos de ejemplo para las startups
+const mockStartups = [
+    {
+        id: "1",
+        nombre: "Tech Innovators",
+        descripcion: "Plataforma de inteligencia artificial para optimización de procesos industriales.",
+        fechaFundacion: "2023-03-15",
+        etapa: "mvp",
+        categoria: "tech",
+        membersCount: 3
+    },
+    {
+        id: "2",
+        nombre: "EduLearn",
+        descripcion: "Solución para educación remota con enfoque en experiencias interactivas.",
+        fechaFundacion: "2022-11-21",
+        etapa: "idea",
+        categoria: "edtech",
+        membersCount: 2
+    },
+];
 
 export default function DashboardPage() {
     // Estado para controlar la hidratación
@@ -29,8 +48,7 @@ export default function DashboardPage() {
 
     // Estados para controlar la navegación y visualización
     const [activeView, setActiveView] = useState<"profile" | "startups" | "startup-detail" | "applications">("startups");
-    const [selectedStartupId, setSelectedStartupId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<string>("profile");
+    const [selectedStartupId, setSelectedStartupId] = useState<string | undefined>(undefined); const [activeTab, setActiveTab] = useState<string>("profile");
 
     // Establecer el estado de montaje cuando el componente está listo en el cliente
     useEffect(() => {
@@ -58,7 +76,7 @@ export default function DashboardPage() {
     };
 
     const handleAddStartup = () => {
-        setSelectedStartupId("new");
+        setSelectedStartupId(null);
         setActiveView("startup-detail");
         setActiveTab("profile");
     };
@@ -94,6 +112,7 @@ export default function DashboardPage() {
             case "startups":
                 return (
                     <StartupList
+                        startups={mockStartups}
                         onSelectStartup={handleSelectStartup}
                         onAddStartup={handleAddStartup}
                     />
@@ -126,63 +145,27 @@ export default function DashboardPage() {
                         {/* Contenido según el tab activo */}
                         {activeTab === "profile" && (
                             <StartupProfileForm
+                                startupId={selectedStartupId}
                                 onSubmit={(data) => console.log("Profile data:", data)}
-                                startupData={selectedStartupId && selectedStartupId !== "new" ? 
-                                    (() => {
-                                        const startup = getMockData.getStartupById(selectedStartupId);
-                                        if (startup) {
-                                            return {
-                                                nombre: startup.nombre,
-                                                razonSocial: startup.razonSocial || "",
-                                                ruc: startup.ruc || "",
-                                                fechaFundacion: startup.fechaFundacion.toISOString().split('T')[0],
-                                                categoria: startup.categoria,
-                                                web: startup.paginaWeb || "",
-                                                descripcion: startup.descripcion,
-                                                etapa: startup.etapa as "mvp" | "idea",
-                                                origen: startup.origen as "curso" | "tesis" | "idea" | "inqubalab",
-                                                videoPitch: startup.videoPitchUrl || "",
-                                            };
-                                        }
-                                        return undefined;
-                                    })() : undefined}
                             />
                         )}
 
                         {activeTab === "impact" && (
                             <ImpactForm
+                                startupId={selectedStartupId}
                                 onSubmit={(data) => console.log("Impact data:", data)}
                             />
                         )}
 
                         {activeTab === "metrics" && (
                             <MetricsForm
+                                startupId={selectedStartupId}
                                 onSubmit={(data) => console.log("Metrics data:", data)}
-                                initialData={selectedStartupId && selectedStartupId !== "new" ? 
-                                    (() => {
-                                        const metrics = getMockData.getMetricsByStartup(selectedStartupId);
-                                        if (metrics) {
-                                            return {
-                                                hasHadSales: metrics.ventas,
-                                                totalSalesAmount: metrics.montoVentas?.toString() || "",
-                                                salesCurrency: metrics.monedaVentas || "",
-                                                hasPilot: metrics.tienePiloto,
-                                                pilotLink: metrics.enlacePiloto || "",
-                                                solutionApplication: metrics.lugarAplicacion || "",
-                                                technologyUsed: metrics.tecnologia,
-                                                hasTechDepartment: metrics.tieneAreaTech,
-                                                hasReceivedInvestment: metrics.inversionExterna,
-                                                investmentAmount: metrics.montoInversion?.toString() || "",
-                                                investmentCurrency: metrics.monedaInversion || "",
-                                            };
-                                        }
-                                        return undefined;
-                                    })() : undefined}
                             />
                         )}
                         {activeTab === "members" && (
                             <MembersList
-                                startupId={selectedStartupId || undefined}
+                                startupId={selectedStartupId}
                                 onSubmit={(data) => console.log("Members data:", data)}
                             />
                         )}
@@ -192,7 +175,7 @@ export default function DashboardPage() {
             case "applications":
                 return (
                     <ApplicationList
-                        startupId={selectedStartupId || undefined}
+                        startupId={selectedStartupId}
                     />
                 );
 

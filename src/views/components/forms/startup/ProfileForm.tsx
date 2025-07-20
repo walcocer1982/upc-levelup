@@ -53,11 +53,13 @@ type StartupFormValues = z.infer<typeof startupSchema>;
 interface StartupProfileFormProps {
   onSubmit: (data: StartupFormValues) => void;
   startupData?: Partial<StartupFormValues>;
+  startupId?: string;
 }
 
 export default function StartupProfileForm({
   onSubmit,
-  startupData
+  startupData,
+  startupId
 }: StartupProfileFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [charCount, setCharCount] = useState(0);
@@ -86,18 +88,46 @@ export default function StartupProfileForm({
       try {
         console.log("🔍 Cargando datos de la startup...");
 
-        const response = await fetch('/api/startups/profile', {
+        // Limpiar el formulario antes de cargar nuevos datos
+        form.reset({
+          nombre: "",
+          razonSocial: "",
+          ruc: "",
+          fechaFundacion: "",
+          categoria: "",
+          web: "",
+          descripcion: "",
+          etapa: undefined,
+          origen: undefined,
+          videoPitch: "",
+        });
+        setCharCount(0);
+        setLoadingData(true);
+
+        console.log("🔄 Formulario reseteado para startupId:", startupId);
+        console.log("🔄 startupId type:", typeof startupId); // ✅ Agregar
+        console.log("🔄 startupId === undefined:", startupId === undefined); // ✅ Agregar
+        console.log("🔄 startupId === 'undefined':", startupId === 'undefined'); // ✅ Agregar
+        console.log("🔄 URL que se va a consultar:", startupId ? `/api/startups/profileForm?startupId=${startupId}` : '/api/startups/profileForm');
+
+        const response = await fetch(startupId ? `/api/startups/profileForm?startupId=${startupId}` : '/api/startups/profileForm', {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
           },
         });
+
+        console.log("🌐 Response status:", response.status);
+        console.log("🌐 Response URL:", response.url);
 
         if (response.ok) {
           const data = await response.json();
           console.log("✅ Datos de startup cargados:", data);
 
-          if (data.startup && data.isOwner) {
+          if (data.startup) {
             // Mapear datos del endpoint al formato del formulario
             const formData = {
               nombre: data.startup.nombre || "",
@@ -134,7 +164,7 @@ export default function StartupProfileForm({
     };
 
     loadStartupData();
-  }, [form]);
+  }, [form, startupId]);
 
   const handleSubmit = async (data: StartupFormValues) => {
     setIsSubmitting(true);
@@ -160,7 +190,7 @@ export default function StartupProfileForm({
       };
 
       // Enviar los datos al endpoint de la API
-      const response = await fetch('/api/startups/profile', {
+      const response = await fetch(startupId ? `/api/startups/profileForm?startupId=${startupId}` : '/api/startups/profileForm', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

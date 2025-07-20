@@ -1,6 +1,6 @@
 "use client";
 
-import { useMockAuth } from '@/hooks/useMockAuth';
+import { useUserData } from '@/hooks/useUserData';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -9,24 +9,17 @@ import {
   Calendar, 
   ChevronRight,
   Menu,
-  X,
-  BarChart3,
-  FileText,
-  Users,
-  Settings,
-  LogOut,
-  Home
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useMediaQuery } from "@/hooks/general/useMediaQuery";
-import { useRouter } from "next/navigation";
 
 interface SidebarProps {
-  onSelectProfile?: () => void;
-  onSelectStartups?: () => void;
-  onSelectApplications?: () => void;
+  onSelectProfile: () => void;
+  onSelectStartups: () => void;
+  onSelectApplications: () => void;
   activeView?: string;
 }
 
@@ -36,22 +29,18 @@ export default function Sidebar({
   onSelectApplications,
   activeView = "startups"
 }: SidebarProps) {
-  const { user, loading } = useMockAuth();
+  const { userData, loading } = useUserData();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const router = useRouter();
 
-  // Detectar si estamos en el área de admin
-  const isAdmin = pathname.startsWith('/admin');
   
   // Cerrar el menú móvil al cambiar de ruta
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname, activeView]);
 
-  // Menú para usuarios regulares
-  const userMenuItems = [
+  const menuItems = [
     {
       icon: <User size={20} />,
       label: "Perfil",
@@ -72,54 +61,6 @@ export default function Sidebar({
     }
   ];
 
-  // Menú para administradores
-  const adminMenuItems = [
-    {
-      icon: <Home size={20} />,
-      label: "Dashboard",
-      href: "/admin",
-      active: pathname === "/admin"
-    },
-    {
-      icon: <Building2 size={20} />,
-      label: "Gestionar Startups",
-      href: "/admin/startups",
-      active: pathname === "/admin/startups"
-    },
-    {
-      icon: <FileText size={20} />,
-      label: "Evaluaciones",
-      href: "/admin/evaluaciones",
-      active: pathname === "/admin/evaluaciones"
-    },
-    {
-      icon: <Calendar size={20} />,
-      label: "Convocatorias",
-      href: "/admin/convocatorias",
-      active: pathname === "/admin/convocatorias"
-    },
-    {
-      icon: <Users size={20} />,
-      label: "Usuarios",
-      href: "/admin/usuarios",
-      active: pathname === "/admin/usuarios"
-    },
-    {
-      icon: <BarChart3 size={20} />,
-      label: "Reportes",
-      href: "/admin/reportes",
-      active: pathname === "/admin/reportes"
-    },
-    {
-      icon: <Settings size={20} />,
-      label: "Configuración",
-      href: "/admin/configuracion",
-      active: pathname === "/admin/configuracion"
-    }
-  ];
-
-  const menuItems = isAdmin ? adminMenuItems : userMenuItems;
-
   // Botón de toggle para móvil - visible solo en dispositivos pequeños
   const mobileToggle = (
     <Button
@@ -132,11 +73,6 @@ export default function Sidebar({
       {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
     </Button>
   );
-
-  const handleLogout = async () => {
-    // En modo mock, simplemente redirigir a la página principal
-    router.push("/");
-  };
 
   return (
     <>
@@ -168,13 +104,13 @@ export default function Sidebar({
             ) : (
               <>
                 <h2 className="font-medium">
-                  {isAdmin ? 'Admin' : (user?.nombres || user?.apellidos 
-                    ? `${user.nombres || ''} ${user.apellidos || ''}`.trim()
+                  {userData?.nombres || userData?.apellidos 
+                    ? `${userData.nombres || ''} ${userData.apellidos || ''}`.trim()
                     : 'Usuario'
-                  )}
+                  }
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {user?.email || 'usuario@ejemplo.com'}
+                  {userData?.email || 'usuario@ejemplo.com'}
                 </p>
               </>
             )}
@@ -184,53 +120,24 @@ export default function Sidebar({
             <ul className="space-y-2">
               {menuItems.map((item, index) => (
                 <li key={index}>
-                  {item.href ? (
-                    <Link href={item.href}>
-                      <Button
-                        variant="ghost" 
-                        className={cn(
-                          "w-full justify-start text-sm font-medium",
-                          item.active 
-                            ? "bg-primary text-primary-foreground font-medium"
-                            : "text-foreground hover:bg-muted/50"
-                        )}
-                      >
-                        <span className="mr-2">{item.icon}</span>
-                        <span>{item.label}</span>
-                        {item.active && <ChevronRight size={16} className="ml-auto" />}
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      onClick={item.onClick}
-                      className={cn(
-                        "w-full justify-start text-sm font-medium",
-                        item.active 
-                          ? "bg-primary text-primary-foreground font-medium"
-                          : "text-foreground hover:bg-muted/50"
-                      )}
-                    >
-                      <span className="mr-2">{item.icon}</span>
-                      <span>{item.label}</span>
-                      {item.active && <ChevronRight size={16} className="ml-auto" />}
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost" 
+                    className={cn(
+                      "w-full justify-start text-sm font-medium",
+                      item.active 
+                        ? "bg-muted text-primary font-medium"
+                        : "text-foreground hover:bg-muted/50"
+                    )}
+                    onClick={item.onClick}
+                  >
+                    <span className="mr-2">{item.icon}</span>
+                    <span>{item.label}</span>
+                    {item.active && <ChevronRight size={16} className="ml-auto" />}
+                  </Button>
                 </li>
               ))}
             </ul>
           </nav>
-
-          <div className="mt-auto pt-4 border-t">
-            <Button
-              variant="ghost"
-              onClick={handleLogout}
-              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <LogOut size={16} className="mr-2" />
-              Cerrar sesión
-            </Button>
-          </div>
         </div>
       </div>
       

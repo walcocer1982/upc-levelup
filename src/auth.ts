@@ -48,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 email: user.email!,
                 nombres: user.name?.split(" ")[0] || null,
                 apellidos: user.name?.split(" ").slice(1).join(" ") || null,
-                role: user.email === "m.limaco0191@gmail.com" || user.email === "walcocer.1982@gmail.com" ? "admin" : "usuario",
+                role: user.email === "m.limaco0191@gmail.com" ? "admin" : "usuario",
                 haAceptadoPolitica: false,
                 isRegistered: false,
               },
@@ -60,7 +60,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const isRegistered = !!dbUser?.isRegistered;
           
           // Determinar el rol basado en la base de datos o email específico
-          const isAdmin = user.email === "m.limaco0191@gmail.com" || user.email === "walcocer.1982@gmail.com";
+          const isAdmin = user.email === "m.limaco0191@gmail.com";
           const role = dbUser?.role || (isAdmin ? "admin" : "usuario");
 
           // Añadir información adicional al token
@@ -72,7 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         } catch (error) {
           console.error("Error verificando/creando usuario:", error);
           // Si hay error, establecer valores predeterminados
-          token.role = user.email === "m.limaco0191@gmail.com" || user.email === "walcocer.1982@gmail.com" ? "admin" : "usuario";
+          token.role = user.email === "m.limaco0191@gmail.com" ? "admin" : "usuario";
           token.isRegistered = false;
         }
       }
