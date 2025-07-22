@@ -166,11 +166,18 @@ model ApplicationForm {
   programaPasado      String?
   aprendizaje         String?
   startupNombre       String
+  // Campos para evaluación IA
+  pregunta            String?
+  respuesta           String?
+  categoria           String?     // complejidad, mercado, escalabilidad, equipo
+  peso                Int?        @default(1)
+  orden               Int?        @default(0)
   convocatoria        Application @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
   startup             Startup     @relation(fields: [startupId], references: [id], onDelete: Cascade)
 
   @@index([startupId])
   @@index([convocatoriaId])
+  @@index([categoria])
   @@map("application_forms")
 }
 
@@ -185,11 +192,78 @@ model Applicant {
   locked            Boolean           @default(false)
   convocatoria      Application       @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
   startup           Startup           @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  evaluaciones      EvaluacionIA[]
 
   @@unique([startupId, convocatoriaId])
   @@index([estado])
   @@index([fecha])
   @@map("applicants")
+}
+
+// Nuevo modelo para evaluaciones IA
+model EvaluacionIA {
+  id                String   @id @default(cuid())
+  postulacionId     String
+  estado            String   // PENDIENTE, EN_PROCESO, COMPLETADA, ERROR
+  modelVersion      String   // gpt-4o-mini, etc.
+  confianza         Float    // 0.0 a 1.0
+  puntajeTotal      Float    // 0 a 100
+  analisis          Json?    // Análisis general como JSON
+  metadata          Json?    // Metadata adicional
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  version           Int      @default(1)
+  
+  // Relaciones
+  postulacion       Applicant @relation(fields: [postulacionId], references: [id], onDelete: Cascade)
+  criteriosEvaluados CriterioEvaluacion[]
+
+  @@index([postulacionId])
+  @@index([estado])
+  @@index([createdAt])
+  @@map("evaluaciones_ia")
+}
+
+// Nuevo modelo para criterios de evaluación
+model CriterioEvaluacion {
+  id                  String   @id @default(cuid())
+  evaluacionId        String
+  criterioId          String
+  categoria           String   // complejidad, mercado, escalabilidad, equipo
+  puntajeOriginal     Int      // 1-4
+  puntajeNormalizado  Float    // 0-100
+  justificacion       String
+  recomendaciones     String?
+  confianza           Float    // 0.0 a 1.0
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  version             Int      @default(1)
+  
+  // Relaciones
+  evaluacion          EvaluacionIA @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+
+  @@index([evaluacionId])
+  @@index([categoria])
+  @@map("criterios_evaluacion")
+}
+
+// Nuevo modelo para convocatorias específicas
+model Convocatoria {
+  id              String   @id @default(cuid())
+  titulo          String
+  descripcion     String
+  fechaInicio     DateTime
+  fechaFin        DateTime
+  estado          String   // ACTIVA, CERRADA, EVALUANDO
+  criterios       Json?    // Criterios específicos de la convocatoria
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  // Relaciones eliminadas para evitar conflicto
+  // postulaciones   Applicant[]
+
+  @@index([estado])
+  @@index([fechaInicio, fechaFin])
+  @@map("convocatorias")
 }
 
 model Comunicacion {

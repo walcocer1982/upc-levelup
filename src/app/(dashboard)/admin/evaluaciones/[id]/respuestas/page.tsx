@@ -1,393 +1,506 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { 
-  ArrowLeft, 
-  Building2, 
-  Users, 
-  Lightbulb, 
-  TrendingUp, 
+  ArrowLeft,
+  Brain, 
+  MessageSquare, 
+  Send,
   FileText,
-  CheckCircle,
-  Clock,
+  Users,
   Target,
-  Zap,
-  Award,
-  Eye,
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight
+  TrendingUp
 } from "lucide-react";
-import { getMockData } from "@/data/mock";
-import { getFormResponseById } from "@/lib/ai/mock-adapter";
-import { toast } from "sonner";
-
-// Estructura de las 16 respuestas organizadas por categoría
-interface RespuestaCategoria {
-  id: string;
-  titulo: string;
-  icono: React.ReactNode;
-  color: string;
-  preguntas: {
-    id: string;
-    pregunta: string;
-    respuesta: string;
-    criterioId: string;
-  }[];
-}
+import { CategoriaEvaluacion } from "@/data/mock/types";
 
 export default function RespuestasPage() {
-  const params = useParams();
   const router = useRouter();
-  const [postulacion, setPostulacion] = useState<any>(null);
-  const [startup, setStartup] = useState<any>(null);
+  const params = useParams();
+  const [postulacionId, setPostulacionId] = useState<string>("");
+
+  const [startup, setStartup] = useState<any | null>(null);
+  const [postulacion, setPostulacion] = useState<any | null>(null);
+  const [respuestas, setRespuestas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [categoriasAbiertas, setCategoriasAbiertas] = useState<string[]>([]);
+  const [procesando, setProcesando] = useState(false);
+  const [comentarios, setComentarios] = useState<Record<string, string>>({});
+  const [evaluacionExistente, setEvaluacionExistente] = useState<any | null>(null);
 
+  // Extraer el ID de los params de forma segura
   useEffect(() => {
-    if (params.id) {
-      const postulacionId = params.id as string;
-      loadData(postulacionId);
+    if (params && typeof params === 'object' && 'id' in params) {
+      setPostulacionId(params.id as string);
     }
-  }, [params.id]);
+  }, [params]);
 
-  const loadData = async (postulacionId: string) => {
-    try {
-      console.log('Cargando respuestas para postulación:', postulacionId);
+  // Cargar datos
+  useEffect(() => {
+    const cargarDatos = async () => {
+      if (!postulacionId) return;
       
-      // Obtener la postulación original
-      const postulacionOriginal = getMockData.getPostulacionById(postulacionId);
-      if (!postulacionOriginal) {
-        console.error('Postulación no encontrada:', postulacionId);
-        toast.error('Postulación no encontrada');
-        setLoading(false);
-        return;
-      }
+      try {
+        setLoading(true);
+        
+        // Obtener datos desde el endpoint API
+        const response = await fetch(`/api/respuestas/${postulacionId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setPostulacion(data.postulacion);
+          setStartup(data.startup);
+          setRespuestas(data.respuestas);
+          setEvaluacionExistente(data.evaluacion);
+        } else {
+          throw new Error(data.error || 'Error al cargar datos');
+        }
 
-      // Obtener la startup
-      const startupData = getMockData.getStartupById(postulacionOriginal.startupId);
-      if (!startupData) {
-        console.error('Startup no encontrada:', postulacionOriginal.startupId);
-        toast.error('Startup no encontrada');
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+      } finally {
         setLoading(false);
-        return;
       }
+    };
 
-      // Convertir a formato de 16 respuestas
-      const formResponse = getFormResponseById(postulacionId);
-      if (!formResponse) {
-        console.error('No se pudo convertir la postulación');
-        toast.error('Error al cargar las respuestas');
-        setLoading(false);
-        return;
-      }
+    cargarDatos();
+  }, [postulacionId]);
 
-      setPostulacion(postulacionOriginal);
-      setStartup(startupData);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error cargando datos:', error);
-      toast.error('Error al cargar los datos');
-      setLoading(false);
+  const getCategoriaIcon = (categoria: CategoriaEvaluacion) => {
+    switch (categoria) {
+      case CategoriaEvaluacion.COMPLEJIDAD:
+        return <Target className="w-4 h-4" />;
+      case CategoriaEvaluacion.MERCADO:
+        return <TrendingUp className="w-4 h-4" />;
+      case CategoriaEvaluacion.ESCALABILIDAD:
+        return <TrendingUp className="w-4 h-4" />;
+      case CategoriaEvaluacion.EQUIPO:
+        return <Users className="w-4 h-4" />;
+      default:
+        return <FileText className="w-4 h-4" />;
     }
   };
 
-  const toggleCategoria = (categoriaId: string) => {
-    setCategoriasAbiertas(prev => 
-      prev.includes(categoriaId) 
-        ? prev.filter(id => id !== categoriaId)
-        : [...prev, categoriaId]
-    );
+  const getCategoriaColor = (categoria: CategoriaEvaluacion) => {
+    switch (categoria) {
+      case CategoriaEvaluacion.COMPLEJIDAD:
+        return "bg-blue-100 text-blue-800";
+      case CategoriaEvaluacion.MERCADO:
+        return "bg-green-100 text-green-800";
+      case CategoriaEvaluacion.ESCALABILIDAD:
+        return "bg-purple-100 text-purple-800";
+      case CategoriaEvaluacion.EQUIPO:
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
   };
 
-  const getCategorias = (): RespuestaCategoria[] => {
-    if (!postulacion) return [];
+  const getCategoriaNombre = (categoria: CategoriaEvaluacion) => {
+    switch (categoria) {
+      case CategoriaEvaluacion.COMPLEJIDAD:
+        return "Complejidad del Problema";
+      case CategoriaEvaluacion.MERCADO:
+        return "Tamaño y Validación de Mercado";
+      case CategoriaEvaluacion.ESCALABILIDAD:
+        return "Potencial de Escalabilidad";
+      case CategoriaEvaluacion.EQUIPO:
+        return "Experiencia y Capacidad del Equipo";
+      default:
+        return categoria;
+    }
+  };
 
-    return [
-      {
-        id: 'complejidad',
-        titulo: 'Complejidad del Problema',
-        icono: <Target className="w-5 h-5" />,
-        color: 'bg-orange-100 text-orange-700 border-orange-200', // Cambiado de rojo a naranja
-        preguntas: [
-          {
-            id: 'caso-real',
-            pregunta: 'Describe un caso real del problema que resuelves',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-013')?.valor || 'No especificado',
-            criterioId: 'criterio-013'
-          },
-          {
-            id: 'abordaje',
-            pregunta: '¿Cómo abordas este problema?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-014')?.valor || 'No especificado',
-            criterioId: 'criterio-014'
-          },
-          {
-            id: 'consecuencias',
-            pregunta: '¿Cuáles son las consecuencias de no resolver este problema?',
-            respuesta: 'Pérdidas económicas y clientes insatisfechos',
-            criterioId: 'criterio-001'
-          },
-          {
-            id: 'afectados',
-            pregunta: '¿Quiénes son los principales afectados?',
-            respuesta: 'Múltiples empresas en el sector',
-            criterioId: 'criterio-002'
-          }
-        ]
-      },
-      {
-        id: 'mercado',
-        titulo: 'Tamaño de Mercado',
-        icono: <TrendingUp className="w-5 h-5" />,
-        color: 'bg-blue-100 text-blue-700 border-blue-200', // Mantiene azul
-        preguntas: [
-          {
-            id: 'tamano',
-            pregunta: '¿Cuál es el tamaño de tu mercado?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-015')?.valor || 'No especificado',
-            criterioId: 'criterio-015'
-          },
-          {
-            id: 'validacion',
-            pregunta: '¿Cómo validaste con clientes potenciales?',
-            respuesta: 'Entrevistas con clientes potenciales realizadas',
-            criterioId: 'criterio-024'
-          },
-          {
-            id: 'interes',
-            pregunta: '¿Hay interés en pagar por tu solución?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-022')?.valor || 'No especificado',
-            criterioId: 'criterio-022'
-          },
-          {
-            id: 'segmento',
-            pregunta: '¿Cuál es tu segmento de interés?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-023')?.valor || 'No especificado',
-            criterioId: 'criterio-023'
-          }
-        ]
-      },
-      {
-        id: 'escalabilidad',
-        titulo: 'Escalabilidad',
-        icono: <Zap className="w-5 h-5" />,
-        color: 'bg-green-100 text-green-700 border-green-200', // Mantiene verde
-        preguntas: [
-          {
-            id: 'estrategia',
-            pregunta: '¿Cuál es tu estrategia de adquisición de clientes?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-019')?.valor || 'No especificado',
-            criterioId: 'criterio-019'
-          },
-          {
-            id: 'costo',
-            pregunta: '¿Cuál es el costo de adquisición de clientes?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-025')?.valor || 'No especificado',
-            criterioId: 'criterio-025'
-          },
-          {
-            id: 'expansion',
-            pregunta: '¿Qué tan fácil es expandir tu solución?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-021')?.valor || 'No especificado',
-            criterioId: 'criterio-021'
-          },
-          {
-            id: 'probadas',
-            pregunta: '¿Qué estrategias has probado?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-020')?.valor || 'No especificado',
-            criterioId: 'criterio-020'
-          }
-        ]
-      },
-      {
-        id: 'equipo',
-        titulo: 'Equipo Emprendedor',
-        icono: <Users className="w-5 h-5" />,
-        color: 'bg-purple-100 text-purple-700 border-purple-200', // Mantiene morado
-        preguntas: [
-          {
-            id: 'trayectoria',
-            pregunta: '¿Cuál es la trayectoria del equipo?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-016')?.valor || 'No especificado',
-            criterioId: 'criterio-016'
-          },
-          {
-            id: 'roles',
-            pregunta: '¿Cómo están definidos los roles y responsabilidades?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-017')?.valor || 'No especificado',
-            criterioId: 'criterio-017'
-          },
-          {
-            id: 'desafios',
-            pregunta: '¿Cómo han superado desafíos anteriores?',
-            respuesta: postulacion.respuestas.find((r: any) => r.criterioId === 'criterio-018')?.valor || 'No especificado',
-            criterioId: 'criterio-018'
-          },
-          {
-            id: 'experiencia',
-            pregunta: '¿Qué experiencia relevante tiene el equipo?',
-            respuesta: 'Equipo con experiencia en el sector',
-            criterioId: 'criterio-004'
-          }
-        ]
+  const agruparRespuestasPorCategoria = () => {
+    const agrupadas: Record<CategoriaEvaluacion, any[]> = {
+      [CategoriaEvaluacion.COMPLEJIDAD]: [],
+      [CategoriaEvaluacion.MERCADO]: [],
+      [CategoriaEvaluacion.ESCALABILIDAD]: [],
+      [CategoriaEvaluacion.EQUIPO]: []
+    };
+
+    respuestas.forEach(respuesta => {
+      agrupadas[respuesta.categoria].push(respuesta);
+    });
+
+    return agrupadas;
+  };
+
+  const iniciarEvaluacionIA = async () => {
+    try {
+      setProcesando(true);
+      
+      // Llamar a la API route para iniciar evaluación IA
+      const response = await fetch('/api/evaluaciones/manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          postulacionId,
+          usarIA: true 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al iniciar la evaluación');
       }
-    ];
+
+      const result = await response.json();
+      console.log('📊 Resultado de evaluación:', result);
+      
+      if (result.success) {
+        console.log('✅ Evaluación exitosa, redirigiendo a revisión IA...');
+        
+        // Actualizar la evaluación existente
+        setEvaluacionExistente(result.evaluacion);
+        
+        // Mostrar mensaje de éxito y redirigir inmediatamente
+        alert(`✅ Evaluación completada exitosamente!\nPuntuación: ${result.evaluacion.puntajeTotal}/100\nRedirigiendo a revisión IA...`);
+        
+        // Esperar un momento para que la evaluación se guarde completamente
+        console.log('⏳ Esperando que la evaluación se guarde...');
+        setTimeout(() => {
+          console.log('🔄 Intentando redirección a:', `/admin/evaluaciones/${postulacionId}/revision-ia`);
+          router.push(`/admin/evaluaciones/${postulacionId}/revision-ia`);
+          
+          // Verificar si la redirección funcionó después de un momento
+          setTimeout(() => {
+            if (window.location.pathname.includes('/respuestas')) {
+              console.log('⚠️ Redirección falló, intentando con window.location...');
+              window.location.href = `/admin/evaluaciones/${postulacionId}/revision-ia`;
+            }
+          }, 2000);
+        }, 1500);
+      } else {
+        console.log('❌ Error en evaluación:', result.error);
+        throw new Error(result.error || 'Error desconocido');
+      }
+      
+    } catch (error) {
+      console.error('Error iniciando evaluación:', error);
+      alert('Error al iniciar la evaluación de IA');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const crearEvaluacionManual = async () => {
+    try {
+      setProcesando(true);
+      
+      // Llamar a la API route para crear evaluación manual
+      const response = await fetch('/api/evaluaciones/manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          postulacionId,
+          usarIA: false 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al crear la evaluación manual');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Evaluación manual creada exitosamente');
+        alert('Evaluación manual creada. Puedes proceder a evaluar manualmente.');
+        // Recargar la página para mostrar la nueva evaluación
+        window.location.reload();
+      } else {
+        throw new Error(result.error || 'Error desconocido');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error creando evaluación manual:', error);
+      alert('Error al crear la evaluación manual: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const irARevisionIA = () => {
+    router.push(`/admin/evaluaciones/${postulacionId}/revision-ia`);
+  };
+
+  const solicitarAclaracion = async (respuestaId: string) => {
+    const comentario = comentarios[respuestaId];
+    if (!comentario?.trim()) {
+      alert('Por favor ingresa un comentario para solicitar aclaración');
+      return;
+    }
+
+    try {
+      // TODO: Implementar solicitud de aclaración
+      console.log('Solicitando aclaración para respuesta:', respuestaId, comentario);
+      alert('Solicitud de aclaración enviada');
+      
+      // Limpiar comentario
+      setComentarios(prev => ({ ...prev, [respuestaId]: '' }));
+      
+    } catch (error) {
+      console.error('Error solicitando aclaración:', error);
+      alert('Error al enviar solicitud de aclaración');
+    }
   };
 
   if (loading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Cargando respuestas...</p>
-          </div>
+          <div className="text-lg">Cargando respuestas...</div>
         </div>
       </div>
     );
   }
 
-  const categorias = getCategorias();
+  if (!startup || !postulacion || !respuestas.length) {
+    return (
+      <div className="container mx-auto p-6">
+          <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600">Error</h1>
+          <p className="text-gray-600">No se encontraron las respuestas</p>
+        </div>
+      </div>
+    );
+  }
+
+  const respuestasPorCategoria = agruparRespuestasPorCategoria();
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <Button
             variant="outline"
             size="sm"
             onClick={() => router.back()}
-            className="flex items-center space-x-2"
+            className="flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Volver</span>
+            Volver
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Respuestas de Postulación
-            </h1>
-            <p className="text-gray-600">
-              {startup?.nombre} - {postulacion?.id}
-            </p>
+            <h1 className="text-3xl font-bold text-gray-900">Revisión de Respuestas</h1>
+            <p className="text-gray-600">Evaluación previa a la revisión de IA</p>
           </div>
         </div>
-        
-        <div className="flex items-center space-x-2">
-          <Badge variant="outline" className="flex items-center space-x-1">
-            <Clock className="w-3 h-3" />
-            <span>{postulacion?.estado}</span>
-          </Badge>
-          <Button
-            onClick={() => router.push(`/admin/evaluaciones/${params.id}/revision-ia`)}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            Continuar a Revisión IA
-          </Button>
+        <div className="flex gap-2">
+          {evaluacionExistente ? (
+            <Button
+              onClick={irARevisionIA}
+              className="flex items-center gap-2"
+            >
+              <Brain className="w-4 h-4" />
+              Ver Evaluación IA
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                onClick={iniciarEvaluacionIA}
+                disabled={procesando}
+                className="flex items-center gap-2"
+              >
+                <Brain className="w-4 h-4" />
+                {procesando ? 'Iniciando...' : 'Evaluación IA'}
+              </Button>
+              <Button
+                onClick={crearEvaluacionManual}
+                disabled={procesando}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                {procesando ? 'Creando...' : 'Evaluación Manual'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Información de la Startup */}
-      <Card className="mb-6">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Building2 className="w-5 h-5" />
-            <span>Información de la Startup</span>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Información de la Startup
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <p className="text-sm font-medium text-gray-500">Nombre</p>
-              <p className="text-lg font-semibold">{startup?.nombre}</p>
+              <h3 className="font-semibold text-lg mb-2">{startup.nombre}</h3>
+              <p className="text-gray-600 mb-4">{startup.descripcion}</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Categoría:</span>
+                  <Badge variant="outline">{startup.categoria}</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Sector:</span>
+                  <span>{startup.sector}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Fundadores:</span>
+                  <span>{startup.fundadores?.join(', ')}</span>
+                </div>
+              </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Categoría</p>
-              <p className="text-lg">{startup?.categoria}</p>
+              <h4 className="font-medium mb-2">Estado de Evaluación</h4>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Estado:</span>
+                  <Badge variant="outline" className={
+                    evaluacionExistente ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                  }>
+                    {evaluacionExistente ? 'Evaluación IA Completada' : 'Pendiente de Evaluación IA'}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Respuestas:</span>
+                  <span>{respuestas.length} de 16</span>
+                </div>
+                {evaluacionExistente && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Puntuación IA:</span>
+                    <span className="font-semibold">{evaluacionExistente.puntajeTotal?.toFixed(1) || 'N/A'}/100</span>
+                  </div>
+                )}
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Etapa</p>
-              <p className="text-lg">{startup?.etapa}</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Acordeón de Respuestas */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Respuestas Organizadas por Categoría
-        </h2>
-        
-        {categorias.map((categoria) => (
-          <Card key={categoria.id} className="overflow-hidden">
-            <CardHeader 
-              className={`cursor-pointer hover:bg-gray-50 transition-colors ${categoria.color}`}
-              onClick={() => toggleCategoria(categoria.id)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  {categoria.icono}
-                  <CardTitle className="text-lg">{categoria.titulo}</CardTitle>
-                  <Badge variant="secondary">
-                    {categoria.preguntas.length} respuestas
+      {/* Respuestas por Categoría */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5" />
+            Respuestas por Categoría
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="multiple" className="w-full">
+            {Object.entries(respuestasPorCategoria).map(([categoria, respuestasCategoria]) => (
+              <AccordionItem key={categoria} value={categoria}>
+                <AccordionTrigger className="hover:no-underline">
+                  <div className="flex items-center gap-3">
+                    {getCategoriaIcon(categoria as CategoriaEvaluacion)}
+                    <Badge variant="outline" className={getCategoriaColor(categoria as CategoriaEvaluacion)}>
+                      {getCategoriaNombre(categoria as CategoriaEvaluacion)}
                   </Badge>
+                    <span className="text-sm text-gray-500">
+                      {respuestasCategoria.length} respuestas
+                    </span>
                 </div>
-                {categoriasAbiertas.includes(categoria.id) ? (
-                  <ChevronDown className="w-5 h-5" />
-                ) : (
-                  <ChevronRight className="w-5 h-5" />
-                )}
-              </div>
-            </CardHeader>
-            
-            {categoriasAbiertas.includes(categoria.id) && (
-              <CardContent className="pt-0">
-                <div className="space-y-4">
-                  {categoria.preguntas.map((pregunta, index) => (
-                    <div key={pregunta.id} className="border-l-4 border-gray-200 pl-4">
-                      <div className="mb-2">
-                        <h4 className="font-medium text-gray-900">
-                          {index + 1}. {pregunta.pregunta}
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 pt-4">
+                    {respuestasCategoria
+                      .sort((a, b) => a.orden - b.orden)
+                      .map((respuesta, index) => (
+                        <div key={respuesta.id} className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-gray-900 mb-2">
+                                Pregunta {respuesta.orden}: {respuesta.pregunta}
                         </h4>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-gray-700 whitespace-pre-wrap">
-                          {pregunta.respuesta}
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <p className="text-gray-700 text-sm leading-relaxed">
+                                  {respuesta.respuesta}
                         </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        ))}
       </div>
 
-      {/* Botones de Acción */}
-      <div className="flex justify-between items-center mt-8 pt-6 border-t">
+                          <div className="flex items-center gap-2">
+                            <Textarea
+                              placeholder="Agregar comentario o solicitar aclaración..."
+                              value={comentarios[respuesta.id] || ''}
+                              onChange={(e) => setComentarios(prev => ({
+                                ...prev,
+                                [respuesta.id]: e.target.value
+                              }))}
+                              className="flex-1"
+                              rows={2}
+                            />
         <Button
           variant="outline"
-          onClick={() => router.back()}
+                              size="sm"
+                              onClick={() => solicitarAclaracion(respuesta.id)}
+                              disabled={!comentarios[respuesta.id]?.trim()}
+                              className="flex items-center gap-2"
         >
-          Volver a Evaluaciones
+                              <Send className="w-4 h-4" />
+                              Solicitar
         </Button>
-        
-        <div className="flex space-x-2">
+                          </div>
+                          
+                          {index < respuestasCategoria.length - 1 && <Separator />}
+                        </div>
+                      ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </CardContent>
+      </Card>
+
+      {/* Acciones */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Acciones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              {evaluacionExistente 
+                ? 'La evaluación de IA ya ha sido completada. Puedes revisar los resultados.'
+                : 'Una vez revisadas las respuestas, puedes iniciar la evaluación automática con IA.'
+              }
+            </div>
+            <div className="flex gap-2">
+              {evaluacionExistente ? (
+                <Button
+                  onClick={irARevisionIA}
+                  className="flex items-center gap-2"
+                >
+                  <Brain className="w-4 h-4" />
+                  Ver Evaluación IA
+                </Button>
+              ) : (
           <Button
-            onClick={() => router.push(`/admin/evaluaciones/${params.id}/revision-ia`)}
-            className="bg-blue-600 hover:bg-blue-700"
+                  onClick={iniciarEvaluacionIA}
+                  disabled={procesando}
+                  className="flex items-center gap-2"
           >
-            Iniciar Revisión IA
+                  <Brain className="w-4 h-4" />
+                  {procesando ? 'Iniciando...' : 'Iniciar Evaluación IA'}
           </Button>
+              )}
         </div>
       </div>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

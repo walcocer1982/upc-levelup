@@ -1,7 +1,12 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { DefaultSession } from "next-auth";
-import { getMockData } from "@/data/mock";
+import { mockUsers, UserRole, type MockUser } from "@/data/mock/users";
+
+// Función auxiliar para obtener usuario por email
+function getUserByEmail(email: string): MockUser | undefined {
+  return mockUsers.find(user => user.email === email);
+}
 
 // Extender tipos para Auth.js v5
 declare module "next-auth" {
@@ -11,13 +16,6 @@ declare module "next-auth" {
       isRegistered: boolean;
       userId?: string;
     } & DefaultSession["user"];
-  }
-
-  // Definición de User para Auth.js v5
-  interface User {
-    role?: string;
-    isRegistered?: boolean;
-    userId?: string;
   }
 }
 
@@ -37,19 +35,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user && account) {
         try {
           // Verificar si el usuario existe en los datos mock
-          let dbUser = getMockData.getUserByEmail(user.email!);
+          let dbUser = getUserByEmail(user.email!);
 
           // Si no existe el usuario, crear uno simulado
           if (!dbUser) {
             // Simular creación de usuario
             dbUser = {
               id: `user-${Date.now()}`,
-                email: user.email!,
+              email: user.email!,
               nombres: user.name?.split(" ")[0] || "",
               apellidos: user.name?.split(" ").slice(1).join(" ") || "",
-              role: user.email === "walcocer.1982@gmail.com" ? "ADMIN" : "FUNDADOR",
-                haAceptadoPolitica: false,
-                isRegistered: false,
+              dni: "00000000",
+              telefono: "000000000",
+              role: user.email === "walcocer.1982@gmail.com" ? UserRole.ADMIN : UserRole.FUNDADOR,
+              haAceptadoPolitica: false,
+              isRegistered: false,
               createdAt: new Date(),
               updatedAt: new Date()
             };
@@ -57,16 +57,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
           
           // Determinar si está registrado
-          const isRegistered = !!dbUser?.isRegistered;
+          const isRegistered = !!dbUser.isRegistered;
           
           // Determinar el rol basado en los datos mock o email específico
           const isAdmin = user.email === "walcocer.1982@gmail.com";
-          const role = dbUser?.role || (isAdmin ? "admin" : "usuario");
+          const role = (dbUser.role || (isAdmin ? "admin" : "usuario")) as string;
 
           // Añadir información adicional al token
           token.role = role;
           token.isRegistered = isRegistered;
-          token.userId = dbUser?.id;
+          token.userId = dbUser.id;
 
           console.log("Token generado (MOCK):", token); // Depuración
         } catch (error) {
@@ -97,10 +97,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     // Registrar login/signup en callback signIn (MOCK)
-    async signIn({ user, account }) {
+    async signIn({ user }) {
       try {
         // Simular búsqueda de usuario en datos mock
-        const dbUser = getMockData.getUserByEmail(user.email!);
+        const dbUser = getUserByEmail(user.email!);
         const isNewUser = !dbUser;
         const action = isNewUser ? 'signup' : 'login';
         

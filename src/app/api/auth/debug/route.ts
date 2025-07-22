@@ -1,56 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mockAuth } from "@/lib/mock-auth";
-import { getMockData } from "@/data/mock";
+import { PrismaRepository } from "@/data/database/repository-prisma";
+import { PrismaClient } from "@/generated/prisma";
+
+const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 Debug endpoint iniciado (MOCK)");
-    
-    // Verificar sesión mock
-    const session = mockAuth.getSession();
-    console.log("📋 Session completa (MOCK):", JSON.stringify(session, null, 2));
-    
-    // Verificar variables de entorno
-    const envCheck = {
-      hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
-      hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
-      hasNextAuthUrl: !!process.env.NEXTAUTH_URL,
-      hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
-      hasDatabaseUrl: !!process.env.DATABASE_URL,
+    console.log("🔍 GET /api/auth/debug iniciado");
+
+    // Obtener estadísticas generales desde la base de datos real
+    const [
+      totalUsers,
+      totalStartups,
+      totalConvocatorias,
+      totalApplications,
+      totalApplicationForms,
+      totalApplicants,
+      totalEvaluaciones
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.startup.count(),
+      prisma.convocatoria.count(),
+      prisma.application.count(),
+      prisma.applicationForm.count(),
+      prisma.applicant.count(),
+      prisma.evaluacionIA.count()
+    ]);
+
+    const stats = {
+      totalUsers,
+      totalStartups,
+      totalConvocatorias,
+      totalApplications,
+      totalApplicationForms,
+      totalApplicants,
+      totalEvaluaciones
     };
-    
-    // Verificar datos mock
-    const mockDataStatus = {
-      totalUsers: getMockData.getAllUsers().length,
-      totalStartups: getMockData.getAllStartups().length,
-      totalConvocatorias: getMockData.getAllConvocatorias().length,
-      totalPostulaciones: getMockData.getAllPostulaciones().length,
-    };
-    
-    return NextResponse.json({
-      session: session ? {
-        hasUser: !!session.user,
-        userEmail: session.user?.email,
-        userRole: session.user?.role,
-        isRegistered: session.user?.isRegistered,
-      } : null,
-      environment: envCheck,
-      mockData: mockDataStatus,
-      authentication: {
-        isAuthenticated: mockAuth.isAuthenticated(),
-        hasRole: mockAuth.hasRole('admin'),
-        isRegistered: mockAuth.isRegistered(),
-      },
-      timestamp: new Date().toISOString(),
-      mode: "MOCK",
+
+    // Obtener datos de startups
+    const startups = await prisma.startup.findMany({
+      select: {
+        id: true,
+        nombre: true,
+        categoria: true,
+        etapa: true,
+        descripcion: true
+      }
     });
-    
-  } catch (error) {
-    console.error("💥 Error en debug endpoint (MOCK):", error);
+
+    // Obtener datos de usuarios
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        nombres: true,
+        apellidos: true,
+        email: true,
+        role: true
+      }
+    });
+
     return NextResponse.json({
-      error: error.message,
-      stack: error.stack,
-      mode: "MOCK",
-    }, { status: 500 });
+      success: true,
+      message: "Datos de debug obtenidos exitosamente desde la base de datos real",
+      stats,
+      startups,
+      users,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error("💥 Error en GET /api/auth/debug:", error);
+    return NextResponse.json(
+      { 
+        error: "Error interno del servidor",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
   }
 } 

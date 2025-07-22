@@ -10,13 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getMockData } from "@/data/mock";
 import DeleteConfirmDialog from "@/components/modals/DeleteConfirmDialog";
 import Link from "next/link";
+import { EstadoConvocatoria, TipoConvocatoria } from "@/data/mock/convocatorias";
 
 interface Convocatoria {
   id: string;
   titulo: string;
   descripcion: string;
-  tipo: string;
-  estado: "borrador" | "abierta" | "cerrada" | "en_evaluacion" | "finalizada";
+  tipo: TipoConvocatoria;
+  estado: EstadoConvocatoria;
   fechaInicio: string;
   fechaFin: string;
   creadoPor: string;
@@ -25,10 +26,9 @@ interface Convocatoria {
 }
 
 // Usar datos mock centralizados
-const mockConvocatorias: Convocatoria[] = getMockData.getAllConvocatorias().map(conv => {
-  const postulaciones = getMockData.getPostulacionesByConvocatoria(conv.id);
-  const creador = getMockData.getUserById(conv.creadoPorId);
-  
+const { convocatorias: mockConvocatorias } = getMockData();
+
+const convocatoriasList: Convocatoria[] = mockConvocatorias.map(conv => {
   return {
     id: conv.id,
     titulo: conv.titulo,
@@ -37,18 +37,18 @@ const mockConvocatorias: Convocatoria[] = getMockData.getAllConvocatorias().map(
     estado: conv.estado,
     fechaInicio: conv.fechaInicio.toISOString().split('T')[0],
     fechaFin: conv.fechaFin.toISOString().split('T')[0],
-    creadoPor: creador?.nombres + " " + creador?.apellidos || "Admin",
-    criterios: conv.criterios.length,
-    postulaciones: postulaciones.length
+    creadoPor: conv.creadoPorId || "Admin",
+    criterios: conv.criterios?.length || 0,
+    postulaciones: 0 // Esto se puede actualizar si necesitas el conteo real
   };
 });
 
 export default function AdminConvocatoriasPage() {
-  const [convocatorias, setConvocatorias] = useState<Convocatoria[]>(mockConvocatorias);
-  const [filteredConvocatorias, setFilteredConvocatorias] = useState<Convocatoria[]>(mockConvocatorias);
+  const [convocatorias, setConvocatorias] = useState<Convocatoria[]>(convocatoriasList);
+  const [filteredConvocatorias, setFilteredConvocatorias] = useState<Convocatoria[]>(convocatoriasList);
   const [searchTerm, setSearchTerm] = useState("");
-  const [tipoFilter, setTipoFilter] = useState("todas");
-  const [estadoFilter, setEstadoFilter] = useState("todas");
+  const [tipoFilter, setTipoFilter] = useState<TipoConvocatoria | "todas">("todas");
+  const [estadoFilter, setEstadoFilter] = useState<EstadoConvocatoria | "todas">("todas");
   
   // Estados para modales
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -79,52 +79,62 @@ export default function AdminConvocatoriasPage() {
     setFilteredConvocatorias(filtered);
   }, [convocatorias, searchTerm, tipoFilter, estadoFilter]);
 
-  const getEstadoColor = (estado: string) => {
+  const getEstadoColor = (estado: EstadoConvocatoria) => {
     switch (estado) {
-      case "abierta":
+      case EstadoConvocatoria.ABIERTA:
         return "bg-green-100 text-green-800";
-      case "en_evaluacion":
+      case EstadoConvocatoria.EN_EVALUACION:
         return "bg-blue-100 text-blue-800";
-      case "finalizada":
+      case EstadoConvocatoria.FINALIZADA:
         return "bg-gray-100 text-gray-800";
-      case "cerrada":
+      case EstadoConvocatoria.CERRADA:
         return "bg-red-100 text-red-800";
-      case "borrador":
+      case EstadoConvocatoria.BORRADOR:
         return "bg-yellow-100 text-yellow-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
-  const getTipoColor = (tipo: string) => {
+  const getTipoColor = (tipo: TipoConvocatoria) => {
     switch (tipo) {
-      case "Inqubalab":
+      case TipoConvocatoria.INQUBALAB:
         return "bg-purple-100 text-purple-800";
-      case "Aceleración":
+      case TipoConvocatoria.ACELERACION:
         return "bg-orange-100 text-orange-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
-  const getEstadoText = (estado: string) => {
+  const getEstadoText = (estado: EstadoConvocatoria) => {
     switch (estado) {
-      case "abierta":
+      case EstadoConvocatoria.ABIERTA:
         return "Abierta";
-      case "en_evaluacion":
+      case EstadoConvocatoria.EN_EVALUACION:
         return "En Evaluación";
-      case "finalizada":
+      case EstadoConvocatoria.FINALIZADA:
         return "Finalizada";
-      case "cerrada":
+      case EstadoConvocatoria.CERRADA:
         return "Cerrada";
-      case "borrador":
+      case EstadoConvocatoria.BORRADOR:
         return "Borrador";
       default:
-        return estado;
+        return "Desconocido";
     }
   };
 
-  // Funciones para manejar modales
+  const getTipoText = (tipo: TipoConvocatoria) => {
+    switch (tipo) {
+      case TipoConvocatoria.INQUBALAB:
+        return "Inqubalab";
+      case TipoConvocatoria.ACELERACION:
+        return "Aceleración";
+      default:
+        return "Desconocido";
+    }
+  };
+
   const handleDeleteConvocatoria = (convocatoria: Convocatoria) => {
     setSelectedConvocatoria(convocatoria);
     setIsDeleteDialogOpen(true);
@@ -132,9 +142,11 @@ export default function AdminConvocatoriasPage() {
 
   const handleConfirmDelete = () => {
     if (selectedConvocatoria) {
-      const updatedConvocatorias = convocatorias.filter(conv => conv.id !== selectedConvocatoria.id);
-      setConvocatorias(updatedConvocatorias);
+      setConvocatorias(prev => prev.filter(conv => conv.id !== selectedConvocatoria.id));
+      setFilteredConvocatorias(prev => prev.filter(conv => conv.id !== selectedConvocatoria.id));
     }
+    setIsDeleteDialogOpen(false);
+    setSelectedConvocatoria(null);
   };
 
   return (
@@ -175,35 +187,41 @@ export default function AdminConvocatoriasPage() {
               />
             </div>
             
-            <Select value={tipoFilter} onValueChange={setTipoFilter}>
+            <Select 
+              value={tipoFilter} 
+              onValueChange={(value: TipoConvocatoria | "todas") => setTipoFilter(value)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todas">Todos los tipos</SelectItem>
-                <SelectItem value="Inqubalab">Inqubalab</SelectItem>
-                <SelectItem value="Aceleración">Aceleración</SelectItem>
+                <SelectItem value={TipoConvocatoria.INQUBALAB}>Inqubalab</SelectItem>
+                <SelectItem value={TipoConvocatoria.ACELERACION}>Aceleración</SelectItem>
               </SelectContent>
             </Select>
 
-            <Select value={estadoFilter} onValueChange={setEstadoFilter}>
+            <Select 
+              value={estadoFilter} 
+              onValueChange={(value: EstadoConvocatoria | "todas") => setEstadoFilter(value)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todas">Todos los estados</SelectItem>
-                <SelectItem value="borrador">Borrador</SelectItem>
-                <SelectItem value="abierta">Abierta</SelectItem>
-                <SelectItem value="en_evaluacion">En Evaluación</SelectItem>
-                <SelectItem value="cerrada">Cerrada</SelectItem>
-                <SelectItem value="finalizada">Finalizada</SelectItem>
+                <SelectItem value={EstadoConvocatoria.BORRADOR}>Borrador</SelectItem>
+                <SelectItem value={EstadoConvocatoria.ABIERTA}>Abierta</SelectItem>
+                <SelectItem value={EstadoConvocatoria.EN_EVALUACION}>En Evaluación</SelectItem>
+                <SelectItem value={EstadoConvocatoria.CERRADA}>Cerrada</SelectItem>
+                <SelectItem value={EstadoConvocatoria.FINALIZADA}>Finalizada</SelectItem>
               </SelectContent>
             </Select>
 
             <Button variant="outline" onClick={() => {
               setSearchTerm("");
-              setTipoFilter("todas");
-              setEstadoFilter("todas");
+              setTipoFilter("todas" as const);
+              setEstadoFilter("todas" as const);
             }}>
               Limpiar filtros
             </Button>
@@ -222,7 +240,7 @@ export default function AdminConvocatoriasPage() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-green-600">
-              {convocatorias.filter(c => c.estado === "abierta" || c.estado === "en_evaluacion").length}
+              {convocatorias.filter(c => c.estado === EstadoConvocatoria.ABIERTA || c.estado === EstadoConvocatoria.EN_EVALUACION).length}
             </div>
             <div className="text-sm text-muted-foreground">Activas</div>
           </CardContent>
@@ -230,7 +248,7 @@ export default function AdminConvocatoriasPage() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-blue-600">
-              {convocatorias.filter(c => c.estado === "en_evaluacion").length}
+              {convocatorias.filter(c => c.estado === EstadoConvocatoria.EN_EVALUACION).length}
             </div>
             <div className="text-sm text-muted-foreground">En Evaluación</div>
           </CardContent>
@@ -238,7 +256,7 @@ export default function AdminConvocatoriasPage() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-gray-600">
-              {convocatorias.filter(c => c.estado === "finalizada").length}
+              {convocatorias.filter(c => c.estado === EstadoConvocatoria.FINALIZADA).length}
             </div>
             <div className="text-sm text-muted-foreground">Finalizadas</div>
           </CardContent>
@@ -261,7 +279,7 @@ export default function AdminConvocatoriasPage() {
                       {getEstadoText(convocatoria.estado)}
                     </Badge>
                     <Badge variant="outline" className={getTipoColor(convocatoria.tipo)}>
-                      {convocatoria.tipo}
+                      {getTipoText(convocatoria.tipo)}
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">{convocatoria.descripcion}</p>

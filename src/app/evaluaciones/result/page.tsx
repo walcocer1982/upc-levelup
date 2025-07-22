@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { localStorageManager } from '@/lib/ai/local-storage';
-import { evaluarStartupLocal } from '@/lib/ai/local-evaluator';
-import { LocalEvaluation, FormResponses } from '@/lib/ai/local-storage';
+import { localStorageManager, evaluarStartupLocal, LocalEvaluation, FormResponses } from '@/lib/ai/types';
 
 export default function EvaluationResult() {
   const router = useRouter();

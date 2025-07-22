@@ -1,30 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockAuth } from "@/lib/mock-auth";
-import { getMockData } from "@/data/mock";
+import { mockUsers } from "@/data/mock";
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🔍 POST request iniciado (MOCK)");
+    console.log("🔍 POST /api/auth/register-profile iniciado (MOCK)");
     
-    // Verificar que el usuario esté autenticado (mock)
+    const body = await request.json();
+    const { 
+      nombres, 
+      apellidos, 
+      dni, 
+      telefono, 
+      correoLaureate, 
+      linkedin, 
+      biografia,
+      haAceptadoPolitica 
+    } = body;
+
+    // Validaciones básicas
+    if (!nombres || !apellidos || !dni || !telefono) {
+      return NextResponse.json(
+        { error: "Faltan campos obligatorios" },
+        { status: 400 }
+      );
+    }
+
+    if (!haAceptadoPolitica) {
+      return NextResponse.json(
+        { error: "Debe aceptar la política de privacidad" },
+        { status: 400 }
+      );
+    }
+
+    // Verificar sesión mock
     const session = mockAuth.getSession();
-    console.log("📋 Session (MOCK):", session);
-    
-    if (!session || !session.user || !session.user.email) {
-      console.log("❌ No hay sesión válida (MOCK)");
+    if (!session) {
       return NextResponse.json(
         { error: "No autorizado" },
         { status: 401 }
       );
     }
 
-    console.log("✅ Usuario autenticado (MOCK):", session.user.email);
+    console.log("📋 Usuario en sesión:", session.user.email);
 
-    // Obtener datos del cuerpo de la petición
-    const body = await request.json();
-    console.log("📝 Datos recibidos:", body);
+    // Buscar usuario existente
+    const allUsers = mockUsers;
+    const existingUser = allUsers.find(user => user.email === session.user.email);
     
-    const {
+    if (!existingUser) {
+      return NextResponse.json(
+        { error: "Usuario no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Actualizar información del usuario
+    const updatedUser = {
+      ...existingUser,
       nombres,
       apellidos,
       dni,
@@ -33,100 +66,36 @@ export async function POST(request: NextRequest) {
       linkedin,
       biografia,
       haAceptadoPolitica,
-    } = body;
-
-    // Validaciones básicas
-    if (!nombres || !apellidos || !dni) {
-      console.log("❌ Faltan campos requeridos");
-      return NextResponse.json(
-        { error: "Nombres, apellidos y DNI son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    if (!haAceptadoPolitica) {
-      console.log("❌ No aceptó política de privacidad");
-      return NextResponse.json(
-        { error: "Debe aceptar la política de privacidad" },
-        { status: 400 }
-      );
-    }
-
-    // Validaciones adicionales para campos requeridos
-    if (!linkedin || !biografia) {
-      console.log("❌ Faltan LinkedIn o biografía");
-      return NextResponse.json(
-        { error: "LinkedIn y biografía son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    console.log("🔍 Verificando DNI duplicado (MOCK)...");
-    // Verificar si el DNI ya existe (para otro usuario) en datos mock
-    const allUsers = getMockData.getAllUsers();
-    const existingUserWithDni = allUsers.find(user => 
-      user.dni === dni && user.email !== session.user.email
-    );
-
-    if (existingUserWithDni) {
-      console.log("❌ DNI duplicado para otro usuario (MOCK)");
-      return NextResponse.json(
-        { error: "El DNI ya está registrado por otro usuario" },
-        { status: 409 }
-      );
-    }
-
-    console.log("🔍 Buscando usuario actual (MOCK)...");
-    // Buscar el usuario actual en datos mock
-    const currentUser = getMockData.getUserByEmail(session.user.email);
-
-    if (!currentUser) {
-      console.log("❌ Usuario no encontrado en BD (MOCK)");
-      return NextResponse.json(
-        { error: "Usuario no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    console.log("✅ Usuario encontrado (MOCK):", currentUser.id);
-
-    console.log("🔄 Actualizando perfil (MOCK)...");
-    // Simular actualización del perfil del usuario
-    const updatedUser = {
-      ...currentUser,
-        nombres,
-        apellidos,
-        dni,
-        telefono,
-        correoLaureate: correoLaureate || null,
-        linkedin,
-        biografia,
-        haAceptadoPolitica,
-        isRegistered: true, // Marcar como registrado
-      updatedAt: new Date(),
+      isRegistered: true,
+      updatedAt: new Date()
     };
 
-    console.log("✅ Perfil actualizado exitosamente (MOCK)");
+    console.log("✅ Perfil actualizado (MOCK):", {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      nombres: updatedUser.nombres,
+      isRegistered: updatedUser.isRegistered
+    });
+
+    // En un sistema real, aquí se guardaría en la base de datos
+    // Por ahora, solo simulamos la actualización
 
     return NextResponse.json({
-      message: "Perfil actualizado exitosamente",
+      success: true,
+      message: "Perfil registrado exitosamente",
       user: {
         id: updatedUser.id,
         email: updatedUser.email,
         nombres: updatedUser.nombres,
         apellidos: updatedUser.apellidos,
-        dni: updatedUser.dni,
-        telefono: updatedUser.telefono,
-        correoLaureate: updatedUser.correoLaureate,
-        linkedin: updatedUser.linkedin,
-        biografia: updatedUser.biografia,
         role: updatedUser.role,
         isRegistered: updatedUser.isRegistered,
-      },
+        haAceptadoPolitica: updatedUser.haAceptadoPolitica
+      }
     });
+
   } catch (error) {
     console.error("💥 Error en POST /api/auth/register-profile (MOCK):", error);
-    console.error("Stack trace:", error.stack);
     return NextResponse.json(
       { 
         error: "Error interno del servidor",
@@ -139,42 +108,46 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 GET request iniciado (MOCK)");
+    console.log("🔍 GET /api/auth/register-profile iniciado (MOCK)");
     
-    // Verificar que el usuario esté autenticado (mock)
+    // Verificar sesión mock
     const session = mockAuth.getSession();
-    console.log("📋 Session (MOCK):", session);
-    
-    if (!session || !session.user || !session.user.email) {
-      console.log("❌ No hay sesión válida (MOCK)");
+    if (!session) {
       return NextResponse.json(
         { error: "No autorizado" },
         { status: 401 }
       );
     }
 
-    console.log("✅ Usuario autenticado (MOCK):", session.user.email);
-
-    console.log("🔍 Buscando usuario en BD (MOCK)...");
-    // Buscar el usuario actual en datos mock
-    const currentUser = getMockData.getUserByEmail(session.user.email);
-
+    // Buscar usuario actual
+    const currentUser = mockUsers.find(user => user.email === session.user.email);
+    
     if (!currentUser) {
-      console.log("❌ Usuario no encontrado en BD (MOCK)");
       return NextResponse.json(
         { error: "Usuario no encontrado" },
         { status: 404 }
       );
     }
 
-    console.log("✅ Usuario encontrado (MOCK):", currentUser.id);
-
     return NextResponse.json({
-      user: currentUser,
+      user: {
+        id: currentUser.id,
+        email: currentUser.email,
+        nombres: currentUser.nombres,
+        apellidos: currentUser.apellidos,
+        dni: currentUser.dni,
+        telefono: currentUser.telefono,
+        correoLaureate: currentUser.correoLaureate,
+        linkedin: currentUser.linkedin,
+        biografia: currentUser.biografia,
+        role: currentUser.role,
+        isRegistered: currentUser.isRegistered,
+        haAceptadoPolitica: currentUser.haAceptadoPolitica
+      }
     });
+
   } catch (error) {
     console.error("💥 Error en GET /api/auth/register-profile (MOCK):", error);
-    console.error("Stack trace:", error.stack);
     return NextResponse.json(
       { 
         error: "Error interno del servidor",

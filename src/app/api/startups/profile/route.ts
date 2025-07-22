@@ -1,143 +1,132 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mockAuth } from "@/lib/mock-auth";
-import { getMockData } from "@/data/mock";
+import { PrismaRepository } from "@/data/database/repository-prisma";
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 GET /api/startups/profile iniciado (MOCK)");
+    console.log("🔍 GET /api/startups/profile iniciado");
     
-    // Verificar que el usuario esté autenticado (mock)
-    const session = mockAuth.getSession();
-    console.log("📋 Session (MOCK):", session);
+    // Obtener el startupId de los parámetros de la URL
+    const url = new URL(request.url);
+    const startupId = url.searchParams.get('startupId');
     
-    if (!session || !session.user || !session.user.email) {
-      console.log("❌ No hay sesión válida (MOCK)");
+    if (!startupId) {
       return NextResponse.json(
-        { error: "No autorizado" },
+        { error: "startupId es requerido" },
+        { status: 400 }
+      );
+    }
+
+    console.log("📋 Buscando startup:", startupId);
+
+    // Verificar autenticación (por ahora usamos el usuario de prueba)
+    const user = await PrismaRepository.getUserByEmail('admin@test.com');
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "Usuario no autorizado" },
         { status: 401 }
       );
     }
 
-    // Buscar el usuario en los datos mock
-    const user = getMockData.getUserByEmail(session.user.email);
-
-    if (!user) {
-      console.log("❌ Usuario no encontrado (MOCK)");
+    // Obtener la startup desde la base de datos real
+    const startup = await PrismaRepository.getStartupById(startupId);
+    
+    if (!startup) {
       return NextResponse.json(
-        { error: "Usuario no encontrado" },
+        { error: "Startup no encontrada" },
         { status: 404 }
       );
     }
 
-    // Buscar startups donde el usuario es CEO/Fundador
-    const allStartups = getMockData.getAllStartups();
-    const userStartups = allStartups.filter(startup => startup.founderId === user.id);
+    console.log("✅ Startup encontrada:", startup.nombre);
 
-    // Si el usuario es CEO/Fundador de alguna startup, devolver la más reciente
-    if (userStartups.length > 0) {
-      const startupData = userStartups[0];
-      console.log("✅ Startup encontrada (MOCK):", startupData.nombre);
-      
-      return NextResponse.json({
-        startup: startupData,
-        isOwner: true,
-        memberRole: "CEO/Fundador"
-      });
-    }
-
-    // Si no tiene startup como CEO/Fundador
-    console.log("ℹ️ Usuario no tiene startup como CEO/Fundador (MOCK)");
+    // Devolver perfil completo de la startup
     return NextResponse.json({
-      startup: null,
-      isOwner: false,
-      memberRole: null
+      startup: {
+        id: startup.id,
+        nombre: startup.nombre,
+        descripcion: startup.descripcion,
+        categoria: startup.categoria,
+        sector: startup.sector,
+        estado: startup.estado,
+        fundadores: startup.fundadores,
+        miembros: startup.miembros,
+        website: startup.website,
+        fechaFundacion: startup.fechaFundacion,
+        ubicacion: startup.ubicacion,
+        mercadoObjetivo: startup.mercadoObjetivo,
+        modeloNegocio: startup.modeloNegocio,
+        createdAt: startup.createdAt,
+        updatedAt: startup.updatedAt
+      }
     });
 
   } catch (error) {
-    console.error("💥 Error en GET /api/startups/profile (MOCK):", error);
+    console.error("💥 Error en GET /api/startups/profile:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor (MOCK)" },
+      { 
+        error: "Error interno del servidor",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function PUT(request: NextRequest) {
   try {
-    console.log("🚀 POST /api/startups/profile iniciado (MOCK)");
+    console.log("🔍 PUT /api/startups/profile iniciado");
     
-    // Verificar que el usuario esté autenticado (mock)
-    const session = mockAuth.getSession();
-    console.log("📋 Session (MOCK):", session);
-    
-    if (!session || !session.user || !session.user.email) {
-      console.log("❌ No hay sesión válida (MOCK)");
+    const body = await request.json();
+    const { startupId, ...formData } = body;
+
+    if (!startupId) {
       return NextResponse.json(
-        { error: "No autorizado" },
+        { error: "startupId es requerido" },
+        { status: 400 }
+      );
+    }
+
+    // Verificar autenticación (por ahora usamos el usuario de prueba)
+    const user = await PrismaRepository.getUserByEmail('admin@test.com');
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "Usuario no autorizado" },
         { status: 401 }
       );
     }
 
-    // Buscar el usuario en los datos mock
-    const user = getMockData.getUserByEmail(session.user.email);
-
-    if (!user) {
-      console.log("❌ Usuario no encontrado (MOCK)");
+    // Verificar que la startup existe
+    const existingStartup = await PrismaRepository.getStartupById(startupId);
+    
+    if (!existingStartup) {
       return NextResponse.json(
-        { error: "Usuario no encontrado" },
+        { error: "Startup no encontrada" },
         { status: 404 }
       );
     }
 
-    if (!user.dni) {
-      console.log("❌ Usuario no tiene DNI registrado (MOCK)");
-      return NextResponse.json(
-        { error: "Debe completar su perfil de usuario primero" },
-        { status: 400 }
-      );
-    }
+    console.log("✅ Startup encontrada para actualizar:", existingStartup.nombre);
 
-    // Parsear los datos del request
-    const body = await request.json();
-    console.log("📝 Datos recibidos:", body);
+    // Actualizar el perfil en la base de datos real
+    const updatedStartup = await PrismaRepository.updateStartup(startupId, formData);
 
-    // Validar campos requeridos
-    const requiredFields = ['nombre', 'fechaFundacion', 'categoria', 'descripcion', 'etapa', 'origen'];
-    const missingFields = requiredFields.filter(field => !body[field]);
-    
-    if (missingFields.length > 0) {
-      console.log("❌ Campos requeridos faltantes:", missingFields);
-      return NextResponse.json(
-        { error: `Campos requeridos: ${missingFields.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // En modo mock, simplemente devolver éxito
-    console.log("✅ Startup creada/actualizada (MOCK)");
+    console.log("✅ Perfil de startup actualizado en la base de datos");
 
     return NextResponse.json({
       success: true,
-      message: "Startup creada/actualizada correctamente (MOCK)",
-      startup: {
-        id: "startup-mock-" + Date.now(),
-        nombre: body.nombre,
-        fechaFundacion: new Date(body.fechaFundacion),
-        categoria: body.categoria,
-        descripcion: body.descripcion,
-        etapa: body.etapa,
-        origen: body.origen,
-        founderId: user.id,
-        estado: "activa",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
+      message: "Perfil actualizado exitosamente",
+      startup: updatedStartup
     });
 
   } catch (error) {
-    console.error("💥 Error en POST /api/startups/profile (MOCK):", error);
+    console.error("💥 Error en PUT /api/startups/profile:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor (MOCK)" },
+      { 
+        error: "Error interno del servidor",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

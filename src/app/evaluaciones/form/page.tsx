@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { localStorageManager } from '@/lib/ai/local-storage';
+import { localStorageManager } from '@/lib/ai/types';
 
 export default function EvaluationForm() {
   const router = useRouter();

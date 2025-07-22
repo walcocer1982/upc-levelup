@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PrismaRepository } from "@/data/database/repository-prisma";
 import { PrismaClient } from "@/generated/prisma";
 import { auth } from "@/auth";
 
@@ -21,49 +22,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
     }
     
-    // Buscar si el usuario ya existe
-    let user = await prisma.user.findUnique({
-      where: {
-        email: session.user.email,
-      },
-    });
+    // Buscar si el usuario ya existe usando PrismaRepository
+    let user = await PrismaRepository.getUserByEmail(session.user.email);
     
     let result;
     
     if (user) {
-      // Actualizar usuario existente
-      result = await prisma.user.update({
-        where: {
-          email: session.user.email,
-        },
-        data: {
-          nombres: profileData.nombres,
-          apellidos: profileData.apellidos,
-          dni: profileData.dni,
-          telefono: profileData.telefono,
-          correoLaureate: profileData.correoLaureate,
-          linkedin: profileData.linkedin,
-          biografia: profileData.biografia,
-          haAceptadoPolitica: profileData.haAceptadoPolitica || false,
-          isRegistered: true, // Marcar como registrado
-        },
+      // Actualizar usuario existente usando PrismaRepository
+      result = await PrismaRepository.updateUserByEmail(session.user.email, {
+        nombres: profileData.nombres,
+        apellidos: profileData.apellidos,
+        dni: profileData.dni,
+        telefono: profileData.telefono,
+        correoLaureate: profileData.correoLaureate,
+        linkedin: profileData.linkedin,
+        biografia: profileData.biografia,
+        haAceptadoPolitica: profileData.haAceptadoPolitica || false,
+        isRegistered: true, // Marcar como registrado
       });
     } else {
-      // Crear nuevo usuario
-      result = await prisma.user.create({
-        data: {
-          email: session.user.email,
-          nombres: profileData.nombres,
-          apellidos: profileData.apellidos,
-          dni: profileData.dni,
-          telefono: profileData.telefono,
-          correoLaureate: profileData.correoLaureate,
-          linkedin: profileData.linkedin,
-          biografia: profileData.biografia,
-          haAceptadoPolitica: profileData.haAceptadoPolitica || false,
-          role: session.user.email === "m.limaco0191@gmail.com" ? "admin" : "usuario",
-          isRegistered: true,
-        },
+      // Crear nuevo usuario usando PrismaRepository
+      result = await PrismaRepository.createUser({
+        email: session.user.email,
+        nombres: profileData.nombres,
+        apellidos: profileData.apellidos,
+        dni: profileData.dni,
+        telefono: profileData.telefono,
+        correoLaureate: profileData.correoLaureate,
+        linkedin: profileData.linkedin,
+        biografia: profileData.biografia,
+        haAceptadoPolitica: profileData.haAceptadoPolitica || false,
+        role: session.user.email === "m.limaco0191@gmail.com" ? "admin" : "usuario",
+        isRegistered: true,
       });
     }
     

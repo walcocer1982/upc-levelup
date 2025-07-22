@@ -104,3 +104,12 @@ export function clearAllData(): void {
   localStorage.removeItem(RESPONSES_KEY);
   localStorage.removeItem(EVALUATIONS_KEY);
 } 
+
+export const clearLocalStorage = () => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('evaluation-store');
+    localStorage.removeItem('mock-evaluaciones');
+    localStorage.removeItem('mock-postulaciones');
+    console.log('✅ LocalStorage limpiado');
+  }
+} 

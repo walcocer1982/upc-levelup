@@ -4,9 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { localStorageManager } from '@/lib/ai/local-storage';
-import { generarDatosEjemplo } from '@/lib/ai/local-evaluator';
-import { FormResponses, LocalEvaluation } from '@/lib/ai/local-storage';
+import { localStorageManager, generarDatosEjemplo, FormResponses, LocalEvaluation } from '@/lib/ai/types';
 
 export default function EvaluacionesPage() {
   const [responses, setResponses] = useState<FormResponses[]>([]);

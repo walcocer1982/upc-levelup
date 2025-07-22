@@ -1,130 +1,109 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mockAuth } from "@/lib/mock-auth";
-import { getMockData } from "@/data/mock";
+import { PrismaRepository } from "@/data/database/repository-prisma";
 
 export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-    try {
-        const session = mockAuth.getSession();
+  try {
+    console.log("🔍 GET /api/startups/[id]/metrics iniciado");
+    
+    const { id: startupId } = await params;
+    console.log("📋 Startup ID:", startupId);
 
-        if (!session || !session.user?.email) {
-            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-        }
-
-        const startupId = (await params).id;
-        console.log("📝 Datos solicitados para startup:", startupId);
-
-        // Verificar que el usuario existe en mock data
-        const user = getMockData.getUserByEmail(session.user.email);
-
-        if (!user || !user.dni) {
-            return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
-        }
-
-        // Buscar la startup en mock data
-        const startup = getMockData.getStartupById(startupId);
-
-        if (!startup) {
-            return NextResponse.json({ error: "Startup no encontrada" }, { status: 404 });
-        }
-
-        console.log("✅ Metrics encontradas (MOCK):", startup.metrics ? "Sí" : "No");
-
-        return NextResponse.json({
-            metrics: startup.metrics ? {
-                hasHadSales: startup.metrics.ventas || false,
-                totalSalesAmount: startup.metrics.montoVentas?.toString() || "",
-                salesCurrency: startup.metrics.monedaVentas || "",
-                hasPilot: startup.metrics.tienePiloto || false,
-                pilotLink: startup.metrics.enlacePiloto || "",
-                solutionApplication: startup.metrics.lugarAplicacion || "",
-                technologyUsed: startup.metrics.tecnologia || "",
-                hasTechDepartment: startup.metrics.tieneAreaTech || false,
-                hasReceivedInvestment: startup.metrics.inversionExterna || false,
-                investmentAmount: startup.metrics.montoInversion?.toString() || "",
-                investmentCurrency: startup.metrics.monedaInversion || "",
-            } : null
-        });
-
-    } catch (error) {
-        console.error("💥 Error en GET /api/startups/[id]/metrics (MOCK):", error);
-        return NextResponse.json(
-            {
-                error: "Error interno del servidor",
-                details: process.env.NODE_ENV === 'development' ? error.message : undefined
-            },
-            { status: 500 }
-        );
+    // Verificar autenticación (por ahora usamos el usuario de prueba)
+    const user = await PrismaRepository.getUserByEmail('admin@test.com');
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "Usuario no autorizado" },
+        { status: 401 }
+      );
     }
+
+    // Verificar que la startup existe
+    const startup = await PrismaRepository.getStartupById(startupId);
+    
+    if (!startup) {
+      return NextResponse.json(
+        { error: "Startup no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    console.log("✅ Startup encontrada:", startup.nombre);
+
+    // Obtener métricas usando PrismaRepository
+    const metrics = await PrismaRepository.getStartupMetrics(startupId);
+
+    return NextResponse.json(metrics);
+
+  } catch (error) {
+    console.error("💥 Error en GET /api/startups/[id]/metrics:", error);
+    return NextResponse.json(
+      { 
+        error: "Error interno del servidor",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
+      { status: 500 }
+    );
+  }
 }
 
-export async function POST(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-    try {
-        const session = mockAuth.getSession();
+  try {
+    console.log("🔍 PUT /api/startups/[id]/metrics iniciado");
+    
+    const { id: startupId } = await params;
+    const body = await request.json();
 
-        if (!session || !session.user?.email) {
-            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-        }
+    console.log("📋 Startup ID:", startupId);
+    console.log("📝 Datos recibidos:", body);
 
-        const startupId = (await params).id;
-        const body = await request.json();
-        console.log("📝 Datos recibidos para startup:", startupId);
-        console.log("📝 Body recibido:", JSON.stringify(body, null, 2));
-
-        // Verificar que el usuario existe en mock data
-        const user = getMockData.getUserByEmail(session.user.email);
-
-        if (!user || !user.dni) {
-            return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
-        }
-
-        // Verificar que la startup existe
-        const startup = getMockData.getStartupById(startupId);
-
-        if (!startup) {
-            return NextResponse.json({ error: "Startup no encontrada" }, { status: 404 });
-        }
-
-        const parseNumber = (value: string | undefined | null): number | null => {
-            if (!value || value.trim() === "") return null;
-            const parsed = parseFloat(value);
-            return isNaN(parsed) ? null : parsed;
-        };
-
-        // En modo mock, simplemente devolver éxito
-        console.log("✅ Metrics creadas/actualizadas (MOCK)");
-
-        return NextResponse.json({
-            message: "Métricas creadas/actualizadas exitosamente (MOCK)",
-            metrics: {
-                startupId: startupId,
-                ventas: body.hasHadSales || false,
-                montoVentas: parseNumber(body.totalSalesAmount),
-                monedaVentas: body.salesCurrency || null,
-                tienePiloto: body.hasPilot || false,
-                enlacePiloto: body.pilotLink || null,
-                lugarAplicacion: body.solutionApplication || null,
-                tecnologia: body.technologyUsed || null,
-                tieneAreaTech: body.hasTechDepartment || false,
-                inversionExterna: body.hasReceivedInvestment || false,
-                montoInversion: parseNumber(body.investmentAmount),
-                monedaInversion: body.investmentCurrency || null,
-            }
-        });
-
-    } catch (error) {
-        console.error("💥 Error en POST /api/startups/[id]/metrics (MOCK):", error);
-        return NextResponse.json(
-            {
-                error: "Error interno del servidor",
-                details: process.env.NODE_ENV === 'development' ? error.message : undefined
-            },
-            { status: 500 }
-        );
+    // Verificar autenticación (por ahora usamos el usuario de prueba)
+    const user = await PrismaRepository.getUserByEmail('admin@test.com');
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "Usuario no autorizado" },
+        { status: 401 }
+      );
     }
+
+    // Verificar que la startup existe
+    const startup = await PrismaRepository.getStartupById(startupId);
+    
+    if (!startup) {
+      return NextResponse.json(
+        { error: "Startup no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    console.log("✅ Startup encontrada:", startup.nombre);
+
+    // Actualizar métricas usando PrismaRepository
+    const updatedMetrics = await PrismaRepository.updateStartupMetrics(startupId, body);
+
+    console.log("✅ Métricas actualizadas en la base de datos");
+
+    return NextResponse.json({
+      success: true,
+      message: "Métricas actualizadas exitosamente",
+      metrics: updatedMetrics
+    });
+
+  } catch (error) {
+    console.error("💥 Error en PUT /api/startups/[id]/metrics:", error);
+    return NextResponse.json(
+      { 
+        error: "Error interno del servidor",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
+      { status: 500 }
+    );
+  }
 }
