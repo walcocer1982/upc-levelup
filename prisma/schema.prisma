@@ -166,10 +166,9 @@ model ApplicationForm {
   programaPasado      String?
   aprendizaje         String?
   startupNombre       String
-  // Campos para evaluación IA
   pregunta            String?
   respuesta           String?
-  categoria           String?     // complejidad, mercado, escalabilidad, equipo
+  categoria           String?
   peso                Int?        @default(1)
   orden               Int?        @default(0)
   convocatoria        Application @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
@@ -200,23 +199,20 @@ model Applicant {
   @@map("applicants")
 }
 
-// Nuevo modelo para evaluaciones IA
 model EvaluacionIA {
-  id                String   @id @default(cuid())
-  postulacionId     String
-  estado            String   // PENDIENTE, EN_PROCESO, COMPLETADA, ERROR
-  modelVersion      String   // gpt-4o-mini, etc.
-  confianza         Float    // 0.0 a 1.0
-  puntajeTotal      Float    // 0 a 100
-  analisis          Json?    // Análisis general como JSON
-  metadata          Json?    // Metadata adicional
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  version           Int      @default(1)
-  
-  // Relaciones
-  postulacion       Applicant @relation(fields: [postulacionId], references: [id], onDelete: Cascade)
+  id                 String               @id @default(cuid())
+  postulacionId      String
+  estado             String
+  modelVersion       String
+  confianza          Float
+  puntajeTotal       Float
+  analisis           Json?
+  metadata           Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  version            Int                  @default(1)
   criteriosEvaluados CriterioEvaluacion[]
+  postulacion        Applicant            @relation(fields: [postulacionId], references: [id], onDelete: Cascade)
 
   @@index([postulacionId])
   @@index([estado])
@@ -224,42 +220,36 @@ model EvaluacionIA {
   @@map("evaluaciones_ia")
 }
 
-// Nuevo modelo para criterios de evaluación
 model CriterioEvaluacion {
-  id                  String   @id @default(cuid())
-  evaluacionId        String
-  criterioId          String
-  categoria           String   // complejidad, mercado, escalabilidad, equipo
-  puntajeOriginal     Int      // 1-4
-  puntajeNormalizado  Float    // 0-100
-  justificacion       String
-  recomendaciones     String?
-  confianza           Float    // 0.0 a 1.0
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  version             Int      @default(1)
-  
-  // Relaciones
-  evaluacion          EvaluacionIA @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+  id                 String       @id @default(cuid())
+  evaluacionId       String
+  criterioId         String
+  categoria          String
+  puntajeOriginal    Int
+  puntajeNormalizado Float
+  justificacion      String
+  recomendaciones    String?
+  confianza          Float
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  version            Int          @default(1)
+  evaluacion         EvaluacionIA @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
 
   @@index([evaluacionId])
   @@index([categoria])
   @@map("criterios_evaluacion")
 }
 
-// Nuevo modelo para convocatorias específicas
 model Convocatoria {
-  id              String   @id @default(cuid())
-  titulo          String
-  descripcion     String
-  fechaInicio     DateTime
-  fechaFin        DateTime
-  estado          String   // ACTIVA, CERRADA, EVALUANDO
-  criterios       Json?    // Criterios específicos de la convocatoria
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  // Relaciones eliminadas para evitar conflicto
-  // postulaciones   Applicant[]
+  id          String   @id @default(cuid())
+  titulo      String
+  descripcion String
+  fechaInicio DateTime
+  fechaFin    DateTime
+  estado      String
+  criterios   Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([estado])
   @@index([fechaInicio, fechaFin])
