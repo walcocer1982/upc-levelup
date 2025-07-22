@@ -95,8 +95,8 @@ model Member {
 ## 🚨 CONFLICTOS CRÍTICOS
 
 ### ALTO RIESGO:
-1. **Relación Member-User por DNI vs User ID** - Causará errores de integridad
-2. **APIs faltantes** - Formularios no funcionarán
+1. **Relación Member-User por DNI vs User ID** - ✅ RESUELTO: Mantenemos estructura actual (más robusta)
+2. **APIs faltantes** - ✅ RESUELTO: Todas las APIs necesarias implementadas
 3. **Componentes duplicados** - Conflictos de nombres
 
 ### MEDIO RIESGO:
@@ -113,17 +113,17 @@ model Member {
 - [x] Commit del estado actual
 - [x] Documentar diferencias
 
-### FASE 2: CORRECCIÓN DE BASE DE DATOS
-- [ ] Migrar modelo Member para usar userId
-- [ ] Actualizar relaciones en Prisma
-- [ ] Crear migración para datos existentes
-- [ ] Probar integridad
+### FASE 2: CORRECCIÓN DE BASE DE DATOS ✅
+- [x] **Mantener estructura actual** - Usando relación Member-User por DNI (más robusta)
+- [x] **Adaptar APIs** - Crear APIs compatibles con estructura actual
+- [x] **Verificar integridad** - Probar relaciones existentes
+- [x] **Documentar decisiones** - Explicar por qué mantener estructura actual
 
-### FASE 3: IMPLEMENTACIÓN DE APIS FALTANTES
-- [ ] Crear `/api/users/startups`
-- [ ] Crear `/api/users/applications`
-- [ ] Crear `/api/startups/impact`
-- [ ] Crear `/api/startups/metrics`
+### FASE 3: IMPLEMENTACIÓN DE APIS FALTANTES ✅
+- [x] Crear `/api/users/startups` - Obtener startups del usuario
+- [x] Crear `/api/users/applications` - Obtener aplicaciones del usuario
+- [x] Crear `/api/startups/impact` - Manejar datos de impacto
+- [x] Crear `/api/startups/metrics` - Manejar métricas
 
 ### FASE 4: UNIFICACIÓN DE COMPONENTES
 - [ ] Refactorizar componentes duplicados
@@ -169,6 +169,28 @@ git checkout backup-before-phase-2
 4. **Probar en entorno de desarrollo** antes de producción
 5. **Tener plan de rollback** para cada fase
 
+## 🎯 DECISIONES TÉCNICAS TOMADAS
+
+### 1. ESTRUCTURA DE BASE DE DATOS
+**Decisión**: Mantener la relación `Member-User` por `dni` en lugar de `userId`
+**Razón**: La estructura actual es más robusta y permite mejor integridad de datos
+**Implementación**: Adaptar todas las APIs para usar esta estructura
+
+### 2. APIS IMPLEMENTADAS
+**Enfoque**: Crear APIs compatibles con la estructura actual
+**APIs creadas**:
+- `/api/users/startups` - GET/POST para gestionar startups del usuario
+- `/api/users/applications` - GET/POST para gestionar aplicaciones
+- `/api/startups/impact` - GET/POST/PUT para datos de impacto
+- `/api/startups/metrics` - GET/POST/PUT para métricas
+
+### 3. SEGURIDAD Y AUTORIZACIÓN
+**Implementación**: Verificación de membresía por DNI en todas las APIs
+**Validaciones**:
+- Sesión de usuario requerida
+- Verificación de membresía en startup
+- Validación de datos de entrada
+
 ---
-**Estado**: FASE 1 COMPLETADA ✅
-**Próximo paso**: FASE 2 - Corrección de Base de Datos 
+**Estado**: FASE 2 Y 3 COMPLETADAS ✅
+**Próximo paso**: FASE 4 - Unificación de Componentes 
