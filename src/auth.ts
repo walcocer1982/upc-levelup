@@ -1,23 +1,11 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import type { DefaultSession } from "next-auth";
-import { mockUsers, UserRole, type MockUser } from "@/data/mock/users";
 
-// Función auxiliar para obtener usuario por email
-function getUserByEmail(email: string): MockUser | undefined {
-  return mockUsers.find(user => user.email === email);
-}
+import { prisma } from "@/lib/prisma";
 
-// Extender tipos para Auth.js v5
-declare module "next-auth" {
-  interface Session {
-    user: {
-      role: string;
-      isRegistered: boolean;
-      userId?: string;
-    } & DefaultSession["user"];
-  }
-}
+// Los tipos están definidos en src/types/next-auth.d.ts
+
+
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -27,96 +15,130 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    // En Auth.js v5, jwt sigue siendo usado pero maneja internamente las conversiones
     async jwt({ token, user, account }) {
-      console.log("Callback JWT ejecutado");
+      console.log("🔐 Callback JWT ejecutado");
 
       // Si es la primera vez que se genera el token (login)
       if (user && account) {
         try {
-          // Verificar si el usuario existe en los datos mock
-          let dbUser = getUserByEmail(user.email!);
+          // Buscar usuario en la base de datos real
+          let dbUser = await prisma.user.findUnique({
+            where: { email: user.email! }
+          });
 
-          // Si no existe el usuario, crear uno simulado
+          // Si no existe el usuario, crear uno nuevo
           if (!dbUser) {
-            // Simular creación de usuario
-            dbUser = {
-              id: `user-${Date.now()}`,
-              email: user.email!,
-              nombres: user.name?.split(" ")[0] || "",
-              apellidos: user.name?.split(" ").slice(1).join(" ") || "",
-              dni: "00000000",
-              telefono: "000000000",
-              role: user.email === "walcocer.1982@gmail.com" ? UserRole.ADMIN : UserRole.FUNDADOR,
-              haAceptadoPolitica: false,
-              isRegistered: false,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            };
-            console.log("Nuevo usuario simulado creado:", dbUser.email);
+            console.log("🆕 Creando nuevo usuario en BD:", user.email);
+            
+            // Determinar rol basado en email específico
+            const isAdmin = user.email === "walcocer.1982@gmail.com";
+            const role = isAdmin ? "admin" : "usuario";
+
+            dbUser = await prisma.user.create({
+              data: {
+                email: user.email!,
+                nombres: user.name?.split(" ")[0] || "",
+                apellidos: user.name?.split(" ").slice(1).join(" ") || "",
+                dni: "00000000", // DNI temporal
+                telefono: "000000000", // Teléfono temporal
+                role: role,
+                haAceptadoPolitica: false,
+                isRegistered: false,
+              }
+            });
+            
+            console.log("✅ Usuario creado exitosamente:", dbUser.email);
+          } else {
+            console.log("✅ Usuario encontrado en BD:", dbUser.email);
           }
           
-          // Determinar si está registrado
-          const isRegistered = !!dbUser.isRegistered;
-          
-          // Determinar el rol basado en los datos mock o email específico
-          const isAdmin = user.email === "walcocer.1982@gmail.com";
-          const role = (dbUser.role || (isAdmin ? "admin" : "usuario")) as string;
+                  // Añadir información adicional al token
+        token.id = dbUser.id;
+        token.role = (dbUser.role as "usuario" | "admin") || "usuario";
+        token.isRegistered = dbUser.isRegistered || false;
+        token.haAceptadoPolitica = dbUser.haAceptadoPolitica || false;
+        token.nombres = dbUser.nombres || undefined;
+        token.apellidos = dbUser.apellidos || undefined;
+        token.dni = dbUser.dni || undefined;
 
-          // Añadir información adicional al token
-          token.role = role;
-          token.isRegistered = isRegistered;
-          token.userId = dbUser.id;
-
-          console.log("Token generado (MOCK):", token); // Depuración
+          console.log("🎫 Token generado:", {
+            id: token.id,
+            email: token.email,
+            role: token.role,
+            isRegistered: token.isRegistered
+          });
         } catch (error) {
-          console.error("Error verificando/creando usuario (MOCK):", error);
+          console.error("❌ Error verificando/creando usuario:", error);
           // Si hay error, establecer valores predeterminados
-          token.role = user.email === "walcocer.1982@gmail.com" ? "admin" : "usuario";
+          token.role = (user.email === "walcocer.1982@gmail.com" ? "admin" : "usuario") as "usuario" | "admin";
           token.isRegistered = false;
+          token.haAceptadoPolitica = false;
         }
       }
 
       return token;
     },
 
-    // Añadir información adicional a la sesión
     async session({ session, token }) {
-      console.log("Callback Session ejecutado");
+      console.log("🔐 Callback Session ejecutado");
 
       if (session.user) {
-        // Añadir información al objeto de sesión
-        session.user.role = token.role as string;
-        session.user.isRegistered = token.isRegistered as boolean;
-        session.user.userId = token.userId as string | undefined;
+        // Añadir información al objeto de sesión usando type assertion
+        const tokenData = token as any;
+        session.user.id = tokenData.id || "";
+        session.user.role = tokenData.role || "usuario";
+        session.user.isRegistered = tokenData.isRegistered || false;
+        session.user.haAceptadoPolitica = tokenData.haAceptadoPolitica || false;
+        session.user.nombres = tokenData.nombres;
+        session.user.apellidos = tokenData.apellidos;
+        session.user.dni = tokenData.dni;
 
-        console.log("Sesión generada:", session); // Depuración
+        console.log("👤 Sesión generada:", {
+          id: session.user.id,
+          email: session.user.email,
+          role: session.user.role,
+          isRegistered: session.user.isRegistered
+        });
       }
 
       return session;
     },
 
-    // Registrar login/signup en callback signIn (MOCK)
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       try {
-        // Simular búsqueda de usuario en datos mock
-        const dbUser = getUserByEmail(user.email!);
+        console.log("🔐 SignIn callback ejecutado para:", user.email);
+        
+        // Verificar si el usuario existe en la base de datos
+        const dbUser = await prisma.user.findUnique({
+          where: { email: user.email! }
+        });
+        
         const isNewUser = !dbUser;
-        const action = isNewUser ? 'signup' : 'login';
+        const action = isNewUser ? 'SIGNUP' : 'LOGIN';
         
-        console.log(`${action.toUpperCase()} simulado para usuario:`, user.email);
+        console.log(`✅ ${action} exitoso para usuario:`, user.email);
         
-        // No necesitamos registrar en base de datos real
-        console.log("Evento de sesión simulado (MOCK)");
+        // Registrar el evento de sesión
+        await prisma.sessionLog.create({
+          data: {
+            userId: dbUser?.id || 'unknown',
+            action: action.toLowerCase(),
+            provider: account?.provider || 'google',
+            userAgent: 'web',
+            ipAddress: 'unknown'
+          }
+        });
+        
       } catch (error) {
-        console.error(`Error en el proceso de autenticación (MOCK):`, error);
+        console.error("❌ Error en el proceso de autenticación:", error);
       }
 
       return true; // Continuar con el proceso de autenticación
     },
 
-    // Redirección personalizada basada en el estado del usuario
     async redirect({ url, baseUrl }) {
+      console.log("🔄 Redirect callback:", { url, baseUrl });
+      
       // Si es nuestra URL de redirección específica, permitirla
       if (url.includes("/auth-redirect")) {
         return url;
@@ -139,5 +161,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: '/', // Página de login personalizada
     error: '/auth/error', // Página de error de autenticación
-  }
+  },
+  session: {
+    strategy: "jwt",
+  },
+  debug: process.env.NODE_ENV === "development",
 });

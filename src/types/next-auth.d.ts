@@ -12,21 +12,32 @@ declare module "next-auth" {
       haAceptadoPolitica: boolean;
       nombres?: string;
       apellidos?: string;
+      dni?: string;
     };
   }
 
   interface User {
+    id: string;
+    email: string;
+    name?: string;
+    image?: string;
     role: "usuario" | "admin";
     isRegistered: boolean;
     haAceptadoPolitica: boolean;
     nombres?: string;
     apellidos?: string;
+    dni?: string;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
-    role: "usuario" | "admin";
-    isRegistered: boolean;
+    id?: string;
+    role?: "usuario" | "admin";
+    isRegistered?: boolean;
+    haAceptadoPolitica?: boolean;
+    nombres?: string;
+    apellidos?: string;
+    dni?: string;
   }
 }
