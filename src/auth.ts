@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 
-import { prisma } from "@/lib/prisma";
+// import { prisma } from "@/lib/prisma";
 
 // Los tipos están definidos en src/types/next-auth.d.ts
 
@@ -21,36 +21,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Si es la primera vez que se genera el token (login)
       if (user && account) {
         try {
-          // Buscar usuario en la base de datos real
-          let dbUser = await prisma.user.findUnique({
-            where: { email: user.email! }
-          });
-
-          // Si no existe el usuario, crear uno nuevo
-          if (!dbUser) {
-            console.log("🆕 Creando nuevo usuario en BD:", user.email);
-            
-            // Determinar rol basado en email específico
-            const isAdmin = user.email === "walcocer.1982@gmail.com";
-            const role = isAdmin ? "admin" : "usuario";
-
-            dbUser = await prisma.user.create({
-              data: {
-                email: user.email!,
-                nombres: user.name?.split(" ")[0] || "",
-                apellidos: user.name?.split(" ").slice(1).join(" ") || "",
-                dni: "00000000", // DNI temporal
-                telefono: "000000000", // Teléfono temporal
-                role: role,
-                haAceptadoPolitica: false,
-                isRegistered: false,
-              }
-            });
-            
-            console.log("✅ Usuario creado exitosamente:", dbUser.email);
-          } else {
-            console.log("✅ Usuario encontrado en BD:", dbUser.email);
-          }
+          // TEMPORAL: Usar datos mock mientras solucionamos Prisma
+          console.log("🆕 Usando datos mock temporalmente:", user.email);
+          
+          // Determinar rol basado en email específico
+          const isAdmin = user.email === "walcocer.1982@gmail.com";
+          const role = isAdmin ? "admin" : "usuario";
+          
+          // Crear usuario mock
+          const dbUser = {
+            id: `user-${Date.now()}`,
+            email: user.email!,
+            nombres: user.name?.split(" ")[0] || "",
+            apellidos: user.name?.split(" ").slice(1).join(" ") || "",
+            dni: "00000000",
+            telefono: "000000000",
+            role: role,
+            haAceptadoPolitica: false,
+            isRegistered: false,
+          };
           
                   // Añadir información adicional al token
         token.id = dbUser.id;
@@ -108,26 +97,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       try {
         console.log("🔐 SignIn callback ejecutado para:", user.email);
         
-        // Verificar si el usuario existe en la base de datos
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email! }
-        });
-        
-        const isNewUser = !dbUser;
-        const action = isNewUser ? 'SIGNUP' : 'LOGIN';
-        
+        // TEMPORAL: Usar datos mock mientras solucionamos Prisma
+        const action = 'LOGIN';
         console.log(`✅ ${action} exitoso para usuario:`, user.email);
         
-        // Registrar el evento de sesión
-        await prisma.sessionLog.create({
-          data: {
-            userId: dbUser?.id || 'unknown',
-            action: action.toLowerCase(),
-            provider: account?.provider || 'google',
-            userAgent: 'web',
-            ipAddress: 'unknown'
-          }
-        });
+        // TEMPORAL: No registrar en BD por ahora
+        console.log("📝 Evento de sesión simulado (temporal)");
         
       } catch (error) {
         console.error("❌ Error en el proceso de autenticación:", error);
