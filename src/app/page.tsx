@@ -1,5 +1,6 @@
 "use client";
 import AuthButton from "@/views/components/login/AuthButton";
+import Link from "next/link";
 
 export default function HomePage() {
   return (

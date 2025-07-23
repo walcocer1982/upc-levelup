@@ -1,86 +1,67 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { PrismaClient } from "@/generated/prisma";
-
-const prisma = new PrismaClient();
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log("🔍 GET /api/startups/[id]/impact iniciado");
-
+    console.log("🔐 GET Startup Impact - Iniciando...");
+    
+    // Verificar sesión
     const session = await auth();
-    if (!session || !session.user || !session.user.email) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    if (!session?.user?.email) {
+      console.log("❌ GET Startup Impact - No autorizado - Sin sesión");
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const startupId = (await params).id;
-    console.log("🎯 Buscando impact para startup:", startupId);
+    const { id: startupId } = await params;
+    console.log("🔍 GET Startup Impact - Buscando respuestas para startup:", startupId);
 
-    // Verificar que el usuario es miembro de la startup
+    // Buscar usuario por email
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+      where: { email: session.user.email },
+      select: { id: true, dni: true }
     });
 
     if (!user || !user.dni) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      console.log("❌ GET Startup Impact - Usuario no encontrado o sin DNI");
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
-    const memberCheck = await prisma.member.findFirst({
+    // Verificar que el usuario es miembro de la startup
+    const isMember = await prisma.member.findUnique({
       where: {
-        dni: user.dni,
-        startupId: startupId
+        dni_startupId: {
+          dni: user.dni,
+          startupId: startupId
+        }
       }
     });
 
-    if (!memberCheck) {
-      return NextResponse.json({ error: "No tienes acceso a esta startup" }, { status: 403 });
+    if (!isMember) {
+      console.log("❌ GET Startup Impact - Usuario no autorizado para esta startup");
+      return NextResponse.json({ error: 'No autorizado para esta startup' }, { status: 403 });
     }
 
-    // Buscar el impact de la startup
-    const impact = await prisma.impact.findUnique({
-      where: { startupId: startupId }
+    // Buscar respuestas de impacto existentes
+    const responses = await prisma.impactResponse.findMany({
+      where: { startupId },
+      orderBy: [
+        { criterio: 'asc' },
+        { pregunta: 'asc' }
+      ]
     });
 
-    console.log("✅ Impact encontrado:", impact ? "Sí" : "No");
+    console.log("✅ GET Startup Impact - Respuestas encontradas:", responses.length);
 
-    return NextResponse.json({
-      impact: impact ? {
-        // Criterio 1: Complejidad
-        casoReal: impact.casoReal,
-        abordajeProblema: impact.abordajeProblema,
-        consecuenciasProblema: impact.consecuencias,
-        otrosAfectados: impact.afectados,
-
-        // Criterio 2: Mercado
-        tamanoMercado: impact.tamanoMercado,
-        validacionClientes: impact.potencialesClientes,
-        disposicionPago: impact.interesPagar,
-        segmentoInteres: impact.segmentoInteres,
-
-        // Criterio 3: Escalabilidad
-        estrategiaAdquisicion: impact.estrategiaAdquisicion,
-        costoAdquisicion: impact.costoAdquisicion,
-        facilidadExpansion: impact.facilidadExpansion,
-        estrategiasEscalabilidad: impact.escalabilidad,
-
-        // Criterio 4: Equipo
-        trayectoriaEquipo: impact.trayectoria,
-        experienciaEquipo: impact.experiencia,
-        rolesEquipo: impact.roles,
-        superacionDesafios: impact.desafios,
-      } : null
-    });
+    return NextResponse.json({ responses });
 
   } catch (error) {
     console.error("💥 Error en GET /api/startups/[id]/impact:", error);
     return NextResponse.json(
-      {
-        error: "Error interno del servidor",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     );
   }
@@ -91,109 +72,89 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log("🚀 POST /api/startups/[id]/impact iniciado");
-
+    console.log("🔐 POST Startup Impact - Iniciando...");
+    
+    // Verificar sesión
     const session = await auth();
-    if (!session || !session.user || !session.user.email) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    if (!session?.user?.email) {
+      console.log("❌ POST Startup Impact - No autorizado - Sin sesión");
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const startupId = (await params).id;
+    const { id: startupId } = await params;
     const body = await request.json();
-    console.log("📝 Datos recibidos para startup:", startupId);
+    const { responses } = body;
 
-    // Verificar que el usuario es miembro de la startup
+    console.log("🔍 POST Startup Impact - Guardando respuestas para startup:", startupId);
+
+    // Buscar usuario por email
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+      where: { email: session.user.email },
+      select: { id: true, dni: true }
     });
 
     if (!user || !user.dni) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      console.log("❌ POST Startup Impact - Usuario no encontrado o sin DNI");
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
-    const memberCheck = await prisma.member.findFirst({
+    // Verificar que el usuario es miembro de la startup
+    const isMember = await prisma.member.findUnique({
       where: {
-        dni: user.dni,
-        startupId: startupId
+        dni_startupId: {
+          dni: user.dni,
+          startupId: startupId
+        }
       }
     });
 
-    if (!memberCheck) {
-      return NextResponse.json({ error: "No tienes acceso a esta startup" }, { status: 403 });
+    if (!isMember) {
+      console.log("❌ POST Startup Impact - Usuario no autorizado para esta startup");
+      return NextResponse.json({ error: 'No autorizado para esta startup' }, { status: 403 });
     }
 
-    // Verificar que la startup existe
-    const startup = await prisma.startup.findUnique({
-      where: { id: startupId }
-    });
-
-    if (!startup) {
-      return NextResponse.json({ error: "Startup no encontrada" }, { status: 404 });
-    }
-
-    // Preparar los datos para actualizar/crear
-    const impactData = {
-      // Criterio 1: Complejidad
-      casoReal: body.casoReal || "",
-      abordajeProblema: body.abordajeProblema || "",
-      consecuencias: body.consecuenciasProblema || "",
-      afectados: body.otrosAfectados || "",
-
-      // Criterio 2: Mercado
-      tamanoMercado: body.tamanoMercado || "",
-      potencialesClientes: body.validacionClientes || "",
-      interesPagar: body.disposicionPago || "",
-      segmentoInteres: body.segmentoInteres || "",
-
-      // Criterio 3: Escalabilidad
-      estrategiaAdquisicion: body.estrategiaAdquisicion || "",
-      costoAdquisicion: body.costoAdquisicion || "",
-      facilidadExpansion: body.facilidadExpansion || "",
-      escalabilidad: body.estrategiasEscalabilidad || "",
-
-      // Criterio 4: Equipo
-      trayectoria: body.trayectoriaEquipo || "",
-      experiencia: body.experienciaEquipo || "",
-      roles: body.rolesEquipo || "",  // 
-      desafios: body.superacionDesafios || "",
-    };
-
-    let impact;
-
-    // Buscar si ya existe un impact para esta startup
-    const existingImpact = await prisma.impact.findUnique({
-      where: { startupId: startupId }
-    });
-
-    if (existingImpact) {
-      // Actualizar el impact existente
-      impact = await prisma.impact.update({
-        where: { startupId: startupId },
-        data: impactData  // ✅ Sin startup.connect
-      });
-      console.log("✅ Impact actualizado exitosamente");
-    } else {
-      impact = await prisma.impact.create({
-        data: {
-          ...impactData,
-          startupId: startupId  // ✅ Solo usar startupId
+    // Guardar o actualizar respuestas
+    const savedResponses = [];
+    
+    for (const response of responses) {
+      const { criterio, pregunta, respuesta } = response;
+      
+      const savedResponse = await prisma.impactResponse.upsert({
+        where: {
+          startupId_criterio_pregunta: {
+            startupId,
+            criterio,
+            pregunta
+          }
+        },
+        update: {
+          respuesta,
+          updatedAt: new Date()
+        },
+        create: {
+          startupId,
+          criterio,
+          pregunta,
+          respuesta,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       });
-      console.log("✅ Impact creado exitosamente");
+      
+      savedResponses.push(savedResponse);
     }
 
-    return NextResponse.json({
-      message: existingImpact ? "Impact actualizado exitosamente" : "Impact creado exitosamente",
-      impact: impact
+    console.log("✅ POST Startup Impact - Respuestas guardadas:", savedResponses.length);
+
+    return NextResponse.json({ 
+      message: 'Respuestas guardadas exitosamente',
+      responses: savedResponses 
     });
 
   } catch (error) {
     console.error("💥 Error en POST /api/startups/[id]/impact:", error);
     return NextResponse.json(
-      {
-        error: "Error interno del servidor",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     );
   }

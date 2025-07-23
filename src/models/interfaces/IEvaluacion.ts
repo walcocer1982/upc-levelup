@@ -1,3 +1,13 @@
+import { IStartup } from './IStartup'
+
+export interface IScore {
+  criterioId: string;
+  criterioName: string;
+  score: number;
+  razones: string;
+  mejoras: string;
+}
+
 export interface IEvaluacion {
   id: string;
   postulacionId: string;
@@ -6,10 +16,16 @@ export interface IEvaluacion {
   comentario?: string;
   aiSuggestion?: boolean;
   totalScore: number;
+  score: number;
+  scores?: IScore[];
   status: EvaluacionStatus;
   createdAt: Date;
   updatedAt: Date;
   completedAt?: Date;
+  startup?: IStartup;
+  strengths?: string[];
+  weaknesses?: string[];
+  detailedAnalysis?: string;
 }
 
 export interface IPuntaje {

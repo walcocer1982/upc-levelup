@@ -62,6 +62,7 @@ model Startup {
   postulaciones    Applicant[]
   applicationForms ApplicationForm[]
   comunicaciones   Comunicacion[]
+  impactResponses  ImpactResponse[]
   impact           Impact?
   members          Member[]
   metrics          Metrics?
@@ -95,6 +96,22 @@ model Impact {
 
   @@index([startupId])
   @@map("impacts")
+}
+
+model ImpactResponse {
+  id        String   @id @default(cuid())
+  startupId String
+  criterio  String
+  pregunta  Int
+  respuesta String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  startup   Startup  @relation(fields: [startupId], references: [id], onDelete: Cascade)
+
+  @@unique([startupId, criterio, pregunta])
+  @@index([startupId])
+  @@index([criterio])
+  @@map("impact_responses")
 }
 
 model Metrics {
@@ -166,11 +183,17 @@ model ApplicationForm {
   programaPasado      String?
   aprendizaje         String?
   startupNombre       String
+  pregunta            String?
+  respuesta           String?
+  categoria           String?
+  peso                Int?        @default(1)
+  orden               Int?        @default(0)
   convocatoria        Application @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
   startup             Startup     @relation(fields: [startupId], references: [id], onDelete: Cascade)
 
   @@index([startupId])
   @@index([convocatoriaId])
+  @@index([categoria])
   @@map("application_forms")
 }
 
@@ -185,11 +208,69 @@ model Applicant {
   locked            Boolean           @default(false)
   convocatoria      Application       @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
   startup           Startup           @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  evaluaciones      EvaluacionIA[]
 
   @@unique([startupId, convocatoriaId])
   @@index([estado])
   @@index([fecha])
   @@map("applicants")
+}
+
+model EvaluacionIA {
+  id                 String               @id @default(cuid())
+  postulacionId      String
+  estado             String
+  modelVersion       String
+  confianza          Float
+  puntajeTotal       Float
+  analisis           Json?
+  metadata           Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  version            Int                  @default(1)
+  criteriosEvaluados CriterioEvaluacion[]
+  postulacion        Applicant            @relation(fields: [postulacionId], references: [id], onDelete: Cascade)
+
+  @@index([postulacionId])
+  @@index([estado])
+  @@index([createdAt])
+  @@map("evaluaciones_ia")
+}
+
+model CriterioEvaluacion {
+  id                 String       @id @default(cuid())
+  evaluacionId       String
+  criterioId         String
+  categoria          String
+  puntajeOriginal    Int
+  puntajeNormalizado Float
+  justificacion      String
+  recomendaciones    String?
+  confianza          Float
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  version            Int          @default(1)
+  evaluacion         EvaluacionIA @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+
+  @@index([evaluacionId])
+  @@index([categoria])
+  @@map("criterios_evaluacion")
+}
+
+model Convocatoria {
+  id          String   @id @default(cuid())
+  titulo      String
+  descripcion String
+  fechaInicio DateTime
+  fechaFin    DateTime
+  estado      String
+  criterios   Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([estado])
+  @@index([fechaInicio, fechaFin])
+  @@map("convocatorias")
 }
 
 model Comunicacion {

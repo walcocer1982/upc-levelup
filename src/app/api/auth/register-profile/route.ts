@@ -1,30 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { mockAuth } from "@/lib/mock-auth";
+import { mockUsers } from "@/data/mock";
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🔍 POST request iniciado");
+    console.log("🔍 POST /api/auth/register-profile iniciado (MOCK)");
     
-    // Verificar que el usuario esté autenticado
-    const session = await auth();
-    console.log("📋 Session:", session);
-    
-    if (!session || !session.user || !session.user.email) {
-      console.log("❌ No hay sesión válida");
+    const body = await request.json();
+    const { 
+      nombres, 
+      apellidos, 
+      dni, 
+      telefono, 
+      correoLaureate, 
+      linkedin, 
+      biografia,
+      haAceptadoPolitica 
+    } = body;
+
+    // Validaciones básicas
+    if (!nombres || !apellidos || !dni || !telefono) {
+      return NextResponse.json(
+        { error: "Faltan campos obligatorios" },
+        { status: 400 }
+      );
+    }
+
+    if (!haAceptadoPolitica) {
+      return NextResponse.json(
+        { error: "Debe aceptar la política de privacidad" },
+        { status: 400 }
+      );
+    }
+
+    // Verificar sesión mock
+    const session = mockAuth.getSession();
+    if (!session) {
       return NextResponse.json(
         { error: "No autorizado" },
         { status: 401 }
       );
     }
 
-    console.log("✅ Usuario autenticado:", session.user.email);
+    console.log("📋 Usuario en sesión:", session.user.email);
 
-    // Obtener datos del cuerpo de la petición
-    const body = await request.json();
-    console.log("📝 Datos recibidos:", body);
+    // Buscar usuario existente
+    const allUsers = mockUsers;
+    const existingUser = allUsers.find(user => user.email === session.user.email);
     
-    const {
+    if (!existingUser) {
+      return NextResponse.json(
+        { error: "Usuario no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Actualizar información del usuario
+    const updatedUser = {
+      ...existingUser,
       nombres,
       apellidos,
       dni,
@@ -33,105 +66,36 @@ export async function POST(request: NextRequest) {
       linkedin,
       biografia,
       haAceptadoPolitica,
-    } = body;
+      isRegistered: true,
+      updatedAt: new Date()
+    };
 
-    // Validaciones básicas
-    if (!nombres || !apellidos || !dni) {
-      console.log("❌ Faltan campos requeridos");
-      return NextResponse.json(
-        { error: "Nombres, apellidos y DNI son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    if (!haAceptadoPolitica) {
-      console.log("❌ No aceptó política de privacidad");
-      return NextResponse.json(
-        { error: "Debe aceptar la política de privacidad" },
-        { status: 400 }
-      );
-    }
-
-    // Validaciones adicionales para campos requeridos
-    if (!linkedin || !biografia) {
-      console.log("❌ Faltan LinkedIn o biografía");
-      return NextResponse.json(
-        { error: "LinkedIn y biografía son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    console.log("🔍 Verificando DNI duplicado...");
-    // Verificar si el DNI ya existe (para otro usuario)
-    const existingUserWithDni = await prisma.user.findFirst({
-      where: {
-        dni: dni,
-        email: { not: session.user.email },
-      },
+    console.log("✅ Perfil actualizado (MOCK):", {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      nombres: updatedUser.nombres,
+      isRegistered: updatedUser.isRegistered
     });
 
-    if (existingUserWithDni) {
-      console.log("❌ DNI duplicado para otro usuario");
-      return NextResponse.json(
-        { error: "El DNI ya está registrado por otro usuario" },
-        { status: 409 }
-      );
-    }
-
-    console.log("🔍 Buscando usuario actual...");
-    // Buscar el usuario actual
-    const currentUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!currentUser) {
-      console.log("❌ Usuario no encontrado en BD");
-      return NextResponse.json(
-        { error: "Usuario no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    console.log("✅ Usuario encontrado:", currentUser.id);
-
-    console.log("🔄 Actualizando perfil...");
-    // Actualizar el perfil del usuario
-    const updatedUser = await prisma.user.update({
-      where: { email: session.user.email },
-      data: {
-        nombres,
-        apellidos,
-        dni,
-        telefono,
-        correoLaureate: correoLaureate || null,
-        linkedin,
-        biografia,
-        haAceptadoPolitica,
-        isRegistered: true, // Marcar como registrado
-      },
-    });
-
-    console.log("✅ Perfil actualizado exitosamente");
+    // En un sistema real, aquí se guardaría en la base de datos
+    // Por ahora, solo simulamos la actualización
 
     return NextResponse.json({
-      message: "Perfil actualizado exitosamente",
+      success: true,
+      message: "Perfil registrado exitosamente",
       user: {
         id: updatedUser.id,
         email: updatedUser.email,
         nombres: updatedUser.nombres,
         apellidos: updatedUser.apellidos,
-        dni: updatedUser.dni,
-        telefono: updatedUser.telefono,
-        correoLaureate: updatedUser.correoLaureate,
-        linkedin: updatedUser.linkedin,
-        biografia: updatedUser.biografia,
         role: updatedUser.role,
         isRegistered: updatedUser.isRegistered,
-      },
+        haAceptadoPolitica: updatedUser.haAceptadoPolitica
+      }
     });
+
   } catch (error) {
-    console.error("💥 Error en POST /api/auth/register-profile:", error);
-    console.error("Stack trace:", error.stack);
+    console.error("💥 Error en POST /api/auth/register-profile (MOCK):", error);
     return NextResponse.json(
       { 
         error: "Error interno del servidor",
@@ -144,60 +108,46 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 GET request iniciado");
+    console.log("🔍 GET /api/auth/register-profile iniciado (MOCK)");
     
-    // Verificar que el usuario esté autenticado
-    const session = await auth();
-    console.log("📋 Session:", session);
-    
-    if (!session || !session.user || !session.user.email) {
-      console.log("❌ No hay sesión válida");
+    // Verificar sesión mock
+    const session = mockAuth.getSession();
+    if (!session) {
       return NextResponse.json(
         { error: "No autorizado" },
         { status: 401 }
       );
     }
 
-    console.log("✅ Usuario autenticado:", session.user.email);
-
-    console.log("🔍 Buscando usuario en BD...");
-    // Buscar el usuario actual
-    const currentUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: {
-        id: true,
-        email: true,
-        nombres: true,
-        apellidos: true,
-        dni: true,
-        telefono: true,
-        correoLaureate: true,
-        linkedin: true,
-        biografia: true,
-        role: true,
-        haAceptadoPolitica: true,
-        isRegistered: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
+    // Buscar usuario actual
+    const currentUser = mockUsers.find(user => user.email === session.user.email);
+    
     if (!currentUser) {
-      console.log("❌ Usuario no encontrado en BD");
       return NextResponse.json(
         { error: "Usuario no encontrado" },
         { status: 404 }
       );
     }
 
-    console.log("✅ Usuario encontrado:", currentUser.id);
-
     return NextResponse.json({
-      user: currentUser,
+      user: {
+        id: currentUser.id,
+        email: currentUser.email,
+        nombres: currentUser.nombres,
+        apellidos: currentUser.apellidos,
+        dni: currentUser.dni,
+        telefono: currentUser.telefono,
+        correoLaureate: currentUser.correoLaureate,
+        linkedin: currentUser.linkedin,
+        biografia: currentUser.biografia,
+        role: currentUser.role,
+        isRegistered: currentUser.isRegistered,
+        haAceptadoPolitica: currentUser.haAceptadoPolitica
+      }
     });
+
   } catch (error) {
-    console.error("💥 Error en GET /api/auth/register-profile:", error);
-    console.error("Stack trace:", error.stack);
+    console.error("💥 Error en GET /api/auth/register-profile (MOCK):", error);
     return NextResponse.json(
       { 
         error: "Error interno del servidor",

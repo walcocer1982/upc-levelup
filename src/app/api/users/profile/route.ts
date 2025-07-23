@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@/generated/prisma";
+import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-
-const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,37 +11,35 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     
-    // Buscar usuario en la base de datos
+    // Buscar usuario usando Prisma directamente
     const user = await prisma.user.findUnique({
-      where: {
-        email: session.user.email,
-      },
-      select: {
-        id: true,
-        email: true,
-        nombres: true,
-        apellidos: true,
-        dni: true,
-        telefono: true,
-        correoLaureate: true,
-        linkedin: true,
-        biografia: true,
-        role: true,
-        haAceptadoPolitica: true,
-        isRegistered: true,
-      }
+      where: { email: session.user.email }
     });
     
     if (!user) {
       return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
     }
     
-    return NextResponse.json(user);
+    // Seleccionar solo los campos necesarios
+    const userProfile = {
+      id: user.id,
+      email: user.email,
+      nombres: user.nombres,
+      apellidos: user.apellidos,
+      dni: user.dni,
+      telefono: user.telefono,
+      correoLaureate: user.correoLaureate,
+      linkedin: user.linkedin,
+      biografia: user.biografia,
+      role: user.role,
+      haAceptadoPolitica: user.haAceptadoPolitica,
+      isRegistered: user.isRegistered,
+    };
+    
+    return NextResponse.json(userProfile);
     
   } catch (error) {
     console.error("Error obteniendo perfil:", error);
     return NextResponse.json({ error: "Error al obtener perfil" }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }

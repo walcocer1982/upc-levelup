@@ -9,8 +9,8 @@ interface StartupCardProps {
     nombre: string;
     descripcion: string;
     fechaFundacion: string | Date;
-    etapa: string;
-    categoria: string;
+    etapa?: string;
+    categoria?: string;
     membersCount?: number;
     members?: { rol: string }[];
   };
@@ -18,12 +18,14 @@ interface StartupCardProps {
 }
 
 export default function StartupCard({ startup, onClick }: StartupCardProps) {
-  const { id, nombre, descripcion, fechaFundacion, etapa, categoria, membersCount, members } = startup;
+  const { id, nombre, descripcion, fechaFundacion, etapa = "", categoria = "", membersCount, members } = startup;
 
   // Calcular el número de miembros desde la base de datos o usar el valor por defecto
   const actualMembersCount = membersCount || members?.length || 0;
 
   const getEtapaColor = (etapa: string) => {
+    if (!etapa) return "bg-gray-100 text-gray-800";
+    
     switch (etapa.toLowerCase()) {
       case "mvp":
         return "bg-amber-100 text-amber-800";
@@ -39,6 +41,8 @@ export default function StartupCard({ startup, onClick }: StartupCardProps) {
   };
 
   const getCategoriaColor = (categoria: string) => {
+    if (!categoria) return "bg-gray-100 text-gray-800";
+    
     switch (categoria.toLowerCase()) {
       case "tech":
       case "tecnología":
@@ -57,6 +61,8 @@ export default function StartupCard({ startup, onClick }: StartupCardProps) {
   };
 
   const formatEtapaDisplay = (etapa: string) => {
+    if (!etapa) return "Sin definir";
+    
     switch (etapa.toLowerCase()) {
       case "mvp":
         return "MVP";
@@ -72,6 +78,8 @@ export default function StartupCard({ startup, onClick }: StartupCardProps) {
   };
 
   const formatCategoriaDisplay = (categoria: string) => {
+    if (!categoria) return "Sin definir";
+    
     switch (categoria.toLowerCase()) {
       case "tech":
       case "tecnología":
