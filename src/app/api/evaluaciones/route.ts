@@ -23,7 +23,10 @@ export async function GET() {
             estado: 'PENDIENTE',
             puntajeTotal: 0,
             evaluadorId: 'Pendiente',
-            fechaEvaluacion: postulacion.fecha,
+            // FECHA DE POSTULACIÓN (cuando el usuario envió la postulación)
+            fechaPostulacion: postulacion.fecha,
+            // FECHA DE EVALUACIÓN (null porque no se ha evaluado)
+            fechaEvaluacion: null,
             metadata: {
               tiempoEvaluacion: 0,
               intentos: 0
@@ -40,6 +43,9 @@ export async function GET() {
           estado: evaluacion.estado,
           puntajeTotal: evaluacion.puntajeTotal,
           evaluadorId: 'IA',
+          // FECHA DE POSTULACIÓN (cuando el usuario envió la postulación)
+          fechaPostulacion: postulacion.fecha,
+          // FECHA DE EVALUACIÓN (cuando se completó la evaluación IA)
           fechaEvaluacion: evaluacion.updatedAt,
           metadata: evaluacion.metadata,
           tieneEvaluacion: true

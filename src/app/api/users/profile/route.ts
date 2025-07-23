@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaRepository } from "@/data/database/repository-prisma";
+import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 
 export async function GET(req: NextRequest) {
@@ -11,8 +11,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     
-    // Buscar usuario usando PrismaRepository
-    const user = await PrismaRepository.getUserByEmail(session.user.email);
+    // Buscar usuario usando Prisma directamente
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    });
     
     if (!user) {
       return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });

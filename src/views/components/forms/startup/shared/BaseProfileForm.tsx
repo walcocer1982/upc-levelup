@@ -160,23 +160,23 @@ export default function BaseProfileForm({
       setIsSubmitting(true);
       console.log("🚀 Enviando datos:", data);
 
-      // Determinar la URL según el modo
-      const apiUrl = mode === 'admin' 
-        ? `/api/startups/profileForm?startupId=${startupId}` 
-        : `/api/startups/profileForm?startupId=${startupId}`;
+      // Determinar la URL y método según si es nueva startup o actualización
+      const isNewStartup = !startupId;
+      const apiUrl = isNewStartup ? '/api/startups/profileForm' : `/api/startups/profileForm?startupId=${startupId}`;
+      const method = isNewStartup ? 'POST' : 'PUT';
 
-      const response = await fetch(startupId ? `/api/startups/profileForm?startupId=${startupId}` : '/api/startups/profileForm', {
-        method: startupId ? 'PUT' : 'POST',
+      const response = await fetch(apiUrl, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(isNewStartup ? data : { ...data, startupId }),
       });
 
       if (response.ok) {
         const result = await response.json();
         console.log("✅ Datos guardados exitosamente:", result);
-        toast.success(startupId ? "Perfil actualizado exitosamente" : "Startup creada exitosamente");
+        toast.success(isNewStartup ? "Startup creada exitosamente" : "Perfil actualizado exitosamente");
         onSubmit(data);
       } else {
         const errorData = await response.json();

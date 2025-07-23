@@ -10,11 +10,8 @@ export const env = {
 
 // Validar variables de entorno requeridas
 export function validateEnv() {
-  const required = ['OPENAI_API_KEY'];
-  const missing = required.filter(key => !env[key as keyof typeof env]);
-  
-  if (missing.length > 0) {
-    throw new Error(`Variables de entorno faltantes: ${missing.join(', ')}`);
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY no está configurada');
   }
 }
 

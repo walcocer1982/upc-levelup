@@ -6,12 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AuthenticatedRoute } from "@/components/auth/ProtectedRoute";
+import { useUserData } from '@/hooks/useUserData';
+import { 
+  User, 
+  Building2, 
+  Calendar, 
+  ChevronRight,
+  LogOut
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
+// Navegación simple como en la imagen
 const navigation = [
-  { name: 'Dashboard', href: '/user/dashboard', icon: '🏠' },
-  { name: 'Mis Startups', href: '/user/startups', icon: '🚀' },
-  { name: 'Mis Aplicaciones', href: '/user/applications', icon: '📋' },
-  { name: 'Mi Perfil', href: '/user?view=profile', icon: '👤' },
+  { name: 'Perfil', href: '/user', icon: <User size={20} /> },
+  { name: 'Startups', href: '/user/startups', icon: <Building2 size={20} /> },
+  { name: 'Convocatorias', href: '/user/convocatorias', icon: <Calendar size={20} /> },
+  { name: 'Mis Aplicaciones', href: '/user/applications', icon: <Calendar size={20} /> },
 ];
 
 export default function UserLayout({
@@ -20,16 +32,23 @@ export default function UserLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { userData, loading } = useUserData();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
+    router.push("/");
+  };
 
   return (
     <AuthenticatedRoute>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="bg-white shadow-sm border-b">
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-4">
-                <Link href="/user/dashboard">
+                <Link href="/user">
                   <h1 className="text-xl font-bold text-gray-900">UPC LevelUp</h1>
                 </Link>
                 <Badge variant="outline">Usuario</Badge>
@@ -39,70 +58,78 @@ export default function UserLayout({
                 <span className="text-sm text-gray-600">
                   Usuario
                 </span>
-                <Link href="/api/auth/signout">
-                  <Button variant="outline" size="sm">
-                    Cerrar Sesión
-                  </Button>
-                </Link>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  Cerrar Sesión
+                </Button>
               </div>
             </div>
           </div>
         </header>
 
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col lg:flex-row gap-6">
-            {/* Sidebar Navigation */}
-            <aside className="lg:w-64">
-              <Card>
-                <CardContent className="p-4">
-                  <nav className="space-y-2">
-                    {navigation.map((item) => {
-                      const isActive = pathname === item.href || 
-                                     (item.href === '/user?view=profile' && pathname === '/user');
-                      
-                      return (
-                        <Link key={item.name} href={item.href}>
-                          <Button
-                            variant={isActive ? "default" : "ghost"}
-                            className={`w-full justify-start ${isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-gray-100'}`}
-                          >
-                            <span className="mr-3">{item.icon}</span>
-                            {item.name}
-                          </Button>
-                        </Link>
-                      );
-                    })}
-                  </nav>
-                </CardContent>
-              </Card>
-
-              {/* Quick Stats */}
-              <Card className="mt-6">
-                <CardContent className="p-4">
-                  <h3 className="font-semibold mb-3">Resumen Rápido</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Startups:</span>
-                      <span className="font-medium">-</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Aplicaciones:</span>
-                      <span className="font-medium">-</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Pendientes:</span>
-                      <span className="font-medium">-</span>
-                    </div>
+        <div className="flex">
+          {/* Sidebar Simple - Como en la imagen */}
+          <aside className="w-64 min-h-screen bg-white border-r">
+            <div className="p-4">
+              {/* Perfil de Usuario */}
+              <Card className="mb-6">
+                <CardContent className="p-4 text-center">
+                  <div className="w-20 h-20 bg-muted rounded-full mx-auto mb-2 flex items-center justify-center">
+                    <User size={32} className="text-muted-foreground" />
                   </div>
+                  
+                  {loading ? (
+                    <div className="animate-pulse">
+                      <div className="h-4 bg-muted rounded w-32 mb-2 mx-auto"></div>
+                      <div className="h-3 bg-muted rounded w-24 mx-auto"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <h2 className="font-medium">
+                        {userData?.nombres || userData?.apellidos 
+                          ? `${userData.nombres || ''} ${userData.apellidos || ''}`.trim()
+                          : 'Usuario'
+                        }
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        {userData?.email || 'usuario@ejemplo.com'}
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
-            </aside>
 
-            {/* Main Content */}
-            <main className="flex-1">
-              {children}
-            </main>
-          </div>
+              {/* Navegación Simple */}
+              <nav className="space-y-2">
+                {navigation.map((item) => {
+                  const isActive = pathname === item.href || 
+                                 (item.href === '/user' && pathname === '/user');
+                  
+                  return (
+                    <Link key={item.name} href={item.href}>
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          "w-full justify-start text-sm font-medium",
+                          isActive 
+                            ? "bg-muted text-primary font-medium"
+                            : "text-foreground hover:bg-muted/50"
+                        )}
+                      >
+                        <span className="mr-2">{item.icon}</span>
+                        <span>{item.name}</span>
+                        {isActive && <ChevronRight size={16} className="ml-auto" />}
+                      </Button>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
+
+          {/* Contenido Principal */}
+          <main className="flex-1 p-6">
+            {children}
+          </main>
         </div>
       </div>
     </AuthenticatedRoute>

@@ -2,24 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import Link from "next/link";
 
 interface Startup {
   id: string;
   nombre: string;
+  descripcion: string;
   categoria: string;
   etapa: string;
-  descripcion: string;
   fechaFundacion: string;
   paginaWeb?: string;
+  videoPitchUrl?: string;
   rol: string;
   aceptado: boolean;
-  memberId: string;
 }
 
 export default function UserStartupsPage() {
@@ -27,7 +28,8 @@ export default function UserStartupsPage() {
   const [startups, setStartups] = useState<Startup[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [sortBy, setSortBy] = useState("fecha-reciente");
 
   useEffect(() => {
     const loadUserStartups = async () => {
@@ -55,12 +57,30 @@ export default function UserStartupsPage() {
     loadUserStartups();
   }, [session]);
 
-  const filteredStartups = startups.filter(startup => {
-    const matchesSearch = startup.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         startup.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !filterCategory || startup.categoria === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredAndSortedStartups = startups
+    .filter(startup => {
+      const matchesSearch = startup.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           startup.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === "all" || startup.categoria === filterCategory;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "fecha-reciente":
+          return new Date(b.fechaFundacion).getTime() - new Date(a.fechaFundacion).getTime();
+        case "fecha-antigua":
+          return new Date(a.fechaFundacion).getTime() - new Date(b.fechaFundacion).getTime();
+        case "nombre-az":
+          return a.nombre.localeCompare(b.nombre);
+        case "nombre-za":
+          return b.nombre.localeCompare(a.nombre);
+        case "etapa":
+          const etapaOrder = { "idea": 1, "mvp": 2, "escalado": 3 };
+          return (etapaOrder[a.etapa.toLowerCase()] || 0) - (etapaOrder[b.etapa.toLowerCase()] || 0);
+        default:
+          return 0;
+      }
+    });
 
   const getEtapaColor = (etapa: string) => {
     switch (etapa.toLowerCase()) {
@@ -88,37 +108,6 @@ export default function UserStartupsPage() {
     }
   };
 
-  const handleJoinStartup = async (startupId: string) => {
-    try {
-      const response = await fetch('/api/users/startups', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startupId,
-          rol: 'Miembro'
-        }),
-      });
-
-      if (response.ok) {
-        toast.success('Te has unido exitosamente a la startup');
-        // Recargar startups
-        const reloadResponse = await fetch('/api/users/startups');
-        if (reloadResponse.ok) {
-          const data = await reloadResponse.json();
-          setStartups(data.startups || []);
-        }
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Error al unirse a la startup');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Error de conexión');
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -129,12 +118,12 @@ export default function UserStartupsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full">
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Mis Startups</h1>
+            <h1 className="text-2xl font-bold">Mis Startups</h1>
             <p className="text-muted-foreground">
               Gestiona tus startups y proyectos
             </p>
@@ -151,35 +140,6 @@ export default function UserStartupsPage() {
       </div>
 
       {/* Filters */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <Input
-            placeholder="Buscar startups..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
-          />
-        </div>
-        <div>
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option value="">Todas las categorías</option>
-            <option value="fintech">Fintech</option>
-            <option value="edutech">Edutech</option>
-            <option value="healthtech">Healthtech</option>
-            <option value="ecommerce">E-commerce</option>
-            <option value="logistics">Logística</option>
-            <option value="sustainability">Sostenibilidad</option>
-            <option value="ai-ml">IA/ML</option>
-            <option value="other">Otro</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -213,8 +173,44 @@ export default function UserStartupsPage() {
         </Card>
       </div>
 
+      {/* Search and Filters */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex-1">
+          <Input
+            placeholder="Buscar startup..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger className="w-full md:w-48">
+            <SelectValue placeholder="Filtrar por categoría" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las categorías</SelectItem>
+            <SelectItem value="Tech">Tech</SelectItem>
+            <SelectItem value="EdTech">EdTech</SelectItem>
+            <SelectItem value="FinTech">FinTech</SelectItem>
+            <SelectItem value="HealthTech">HealthTech</SelectItem>
+            <SelectItem value="E-commerce">E-commerce</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-full md:w-48">
+            <SelectValue placeholder="Ordenar por" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="fecha-reciente">Fecha (Más Reciente)</SelectItem>
+            <SelectItem value="fecha-antigua">Fecha (Más Antigua)</SelectItem>
+            <SelectItem value="nombre-az">Nombre (A-Z)</SelectItem>
+            <SelectItem value="nombre-za">Nombre (Z-A)</SelectItem>
+            <SelectItem value="etapa">Etapa de Desarrollo</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Startups List */}
-      {filteredStartups.length === 0 ? (
+      {filteredAndSortedStartups.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
             <div className="mb-4">
@@ -226,7 +222,7 @@ export default function UserStartupsPage() {
             <p className="text-muted-foreground mb-4">
               {startups.length === 0 
                 ? "No tienes startups registradas. Crea tu primera startup para comenzar."
-                : "No hay startups que coincidan con tu búsqueda."
+                : "No hay startups que coincidan con tu búsqueda o filtros aplicados."
               }
             </p>
             {startups.length === 0 && (
@@ -237,63 +233,72 @@ export default function UserStartupsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredStartups.map((startup) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {filteredAndSortedStartups.map((startup) => (
             <Card key={startup.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{startup.nombre}</CardTitle>
-                    <CardDescription className="mt-2">
-                      {startup.descripcion.length > 100 
-                        ? `${startup.descripcion.substring(0, 100)}...`
-                        : startup.descripcion
-                      }
-                    </CardDescription>
-                  </div>
-                  {!startup.aceptado && (
-                    <Badge variant="outline" className="ml-2">
-                      Pendiente
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
+              <CardContent className="p-4">
                 <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge className={getEtapaColor(startup.etapa)}>
-                      {startup.etapa}
-                    </Badge>
-                    <Badge className={getCategoriaColor(startup.categoria)}>
-                      {startup.categoria}
-                    </Badge>
+                  {/* Header con nombre y estado */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold mb-1">{startup.nombre}</h3>
+                      <p className="text-muted-foreground text-sm mb-2">
+                        {startup.descripcion.length > 80 
+                          ? `${startup.descripcion.substring(0, 80)}...`
+                          : startup.descripcion
+                        }
+                      </p>
+                    </div>
+                    {!startup.aceptado && (
+                      <Badge variant="outline" className="ml-2 flex-shrink-0 text-xs">
+                        Pendiente
+                      </Badge>
+                    )}
                   </div>
                   
-                  <div className="text-sm text-muted-foreground">
-                    <p><strong>Rol:</strong> {startup.rol}</p>
-                    <p><strong>Fundada:</strong> {new Date(startup.fechaFundacion).toLocaleDateString()}</p>
+                  {/* Badges y detalles en línea */}
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <div className="flex gap-1">
+                      <Badge className={`${getEtapaColor(startup.etapa)} text-xs`}>
+                        {startup.etapa}
+                      </Badge>
+                      <Badge className={`${getCategoriaColor(startup.categoria)} text-xs`}>
+                        {startup.categoria}
+                      </Badge>
+                    </div>
+                    <span>•</span>
+                    <span><strong>Rol:</strong> {startup.rol}</span>
+                    <span>•</span>
+                    <span><strong>Fundada:</strong> {new Date(startup.fechaFundacion).toLocaleDateString()}</span>
                     {startup.paginaWeb && (
-                      <p><strong>Web:</strong> 
+                      <>
+                        <span>•</span>
                         <a 
                           href={startup.paginaWeb} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline ml-1"
+                          className="text-blue-600 hover:underline"
                         >
-                          Ver sitio
+                          <strong>Web:</strong> Ver sitio
                         </a>
-                      </p>
+                      </>
                     )}
                   </div>
-
-                  <div className="flex gap-2 pt-2">
+                  
+                  {/* Botones de acción */}
+                  <div className="flex gap-2 pt-1">
                     <Link href={`/user/startups/${startup.id}`} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button variant="outline" size="sm" className="w-full text-xs">
                         Ver Detalles
                       </Button>
                     </Link>
+                    <Link href={`/user/startups/${startup.id}/impacto`} className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full text-xs">
+                        Completar Impacto
+                      </Button>
+                    </Link>
                     <Link href={`/user/startups/${startup.id}/editar`} className="flex-1">
-                      <Button size="sm" className="w-full">
+                      <Button size="sm" className="w-full text-xs">
                         Editar
                       </Button>
                     </Link>
@@ -306,4 +311,4 @@ export default function UserStartupsPage() {
       )}
     </div>
   );
-} 
+}

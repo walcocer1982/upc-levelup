@@ -1,6 +1,7 @@
 // Repositorio y servicios unificados
 export { Repository } from './repository';
-export { EvaluacionService } from './services';
+// Remover EvaluacionService para evitar importación de servicios de IA en el cliente
+// export { EvaluacionService } from './services';
 
 // Tipos centralizados
 export * from './types';
@@ -15,7 +16,7 @@ import { mockDb } from './database';
 import { mockUsers } from './users';
 import { mockConvocatorias } from './convocatorias';
 
-// Función para obtener todos los datos mock
+// Función para obtener todos los datos mock (sin servicios de IA)
 export function getMockData() {
   return {
     users: mockUsers,

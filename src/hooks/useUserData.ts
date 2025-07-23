@@ -25,7 +25,7 @@ export const useUserData = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await fetch('/api/auth/register-profile', {
+        const response = await fetch('/api/users/profile', {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -33,7 +33,7 @@ export const useUserData = () => {
         });
 
         if (response.ok) {
-          const { user } = await response.json();
+          const user = await response.json();
           setUserData(user);
         } else {
           setError('Error al cargar datos del usuario');

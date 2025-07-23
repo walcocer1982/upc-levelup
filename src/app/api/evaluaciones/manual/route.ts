@@ -42,23 +42,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Obtener respuestas organizadas por categoría
-    const respuestas = await prisma.applicationForm.findMany({
+    const respuestas = await prisma.impactResponse.findMany({
       where: {
-        startupId: postulacion.startupId,
-        convocatoriaId: postulacion.convocatoriaId
+        startupId: postulacion.startupId
       },
       orderBy: [
-        { categoria: 'asc' },
-        { orden: 'asc' }
+        { criterio: 'asc' },
+        { pregunta: 'asc' }
       ]
     });
 
     // Organizar respuestas por categoría
     const respuestasPorCategoria = {
-      COMPLEJIDAD: respuestas.filter(r => r.categoria === 'COMPLEJIDAD'),
-      MERCADO: respuestas.filter(r => r.categoria === 'MERCADO'),
-      ESCALABILIDAD: respuestas.filter(r => r.categoria === 'ESCALABILIDAD'),
-      EQUIPO: respuestas.filter(r => r.categoria === 'EQUIPO')
+      COMPLEJIDAD: respuestas.filter(r => r.criterio === 'complejidad'),
+      MERCADO: respuestas.filter(r => r.criterio === 'mercado'),
+      ESCALABILIDAD: respuestas.filter(r => r.criterio === 'escalabilidad'),
+      EQUIPO: respuestas.filter(r => r.criterio === 'equipo')
     };
 
     return NextResponse.json({
@@ -160,18 +159,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const respuestas = await prisma.applicationForm.findMany({
+    const respuestas = await prisma.impactResponse.findMany({
       where: {
-        startupId: postulacion.startupId,
-        convocatoriaId: postulacion.convocatoriaId
+        startupId: postulacion.startupId
       },
       select: {
         id: true,
         pregunta: true,
         respuesta: true,
-        categoria: true,
-        peso: true,
-        orden: true
+        criterio: true
       }
     });
 
@@ -187,11 +183,11 @@ export async function POST(request: NextRequest) {
     // Convertir respuestas al formato del evaluador
     const respuestasEvaluacion = respuestas.map(r => ({
       id: r.id,
-      pregunta: r.pregunta || '',
+      pregunta: `Pregunta ${r.pregunta} - ${r.criterio}`,
       respuesta: r.respuesta || '',
-      categoria: r.categoria?.toUpperCase() as CategoriaEvaluacion,
-      peso: r.peso || 1,
-      orden: r.orden || 0
+      categoria: r.criterio?.toUpperCase() as CategoriaEvaluacion,
+      peso: 1,
+      orden: r.pregunta
     }));
 
     // Realizar evaluación con IA
@@ -205,7 +201,7 @@ export async function POST(request: NextRequest) {
       id: evaluacionId,
       postulacionId,
       estado: EvaluacionStatus.COMPLETADA,
-      modelVersion: 'gpt-4o-mini',
+              modelVersion: 'gpt-3.5-turbo',
       confianza: evaluacionCompleta.confianza,
       criteriosEvaluados: evaluacionCompleta.criteriosEvaluados.map((ec, index) => ({
         id: `crit-eval-${evaluacionId}-${index}`,

@@ -50,7 +50,7 @@ export default function AdminLayout({
     },
     {
       icon: <Building2 size={20} />,
-      label: "Gestionar Startups",
+      label: "Ver Startups",
       href: "/admin/startups",
       active: pathname === "/admin/startups"
     },

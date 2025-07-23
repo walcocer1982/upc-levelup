@@ -1,112 +1,160 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PrismaRepository } from "@/data/database/repository-prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log("🔍 GET /api/startups/[id]/impact iniciado");
+    console.log("🔐 GET Startup Impact - Iniciando...");
     
+    // Verificar sesión
+    const session = await auth();
+    if (!session?.user?.email) {
+      console.log("❌ GET Startup Impact - No autorizado - Sin sesión");
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const { id: startupId } = await params;
-    console.log("📋 Startup ID:", startupId);
+    console.log("🔍 GET Startup Impact - Buscando respuestas para startup:", startupId);
 
-    // Verificar autenticación (por ahora usamos el usuario de prueba)
-    const user = await PrismaRepository.getUserByEmail('admin@test.com');
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: "Usuario no autorizado" },
-        { status: 401 }
-      );
+    // Buscar usuario por email
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, dni: true }
+    });
+
+    if (!user || !user.dni) {
+      console.log("❌ GET Startup Impact - Usuario no encontrado o sin DNI");
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
-    // Verificar que la startup existe
-    const startup = await PrismaRepository.getStartupById(startupId);
-    
-    if (!startup) {
-      return NextResponse.json(
-        { error: "Startup no encontrada" },
-        { status: 404 }
-      );
+    // Verificar que el usuario es miembro de la startup
+    const isMember = await prisma.member.findUnique({
+      where: {
+        dni_startupId: {
+          dni: user.dni,
+          startupId: startupId
+        }
+      }
+    });
+
+    if (!isMember) {
+      console.log("❌ GET Startup Impact - Usuario no autorizado para esta startup");
+      return NextResponse.json({ error: 'No autorizado para esta startup' }, { status: 403 });
     }
 
-    console.log("✅ Startup encontrada:", startup.nombre);
+    // Buscar respuestas de impacto existentes
+    const responses = await prisma.impactResponse.findMany({
+      where: { startupId },
+      orderBy: [
+        { criterio: 'asc' },
+        { pregunta: 'asc' }
+      ]
+    });
 
-    // Obtener datos de impacto usando PrismaRepository
-    const impact = await PrismaRepository.getStartupImpact(startupId);
+    console.log("✅ GET Startup Impact - Respuestas encontradas:", responses.length);
 
-    return NextResponse.json(impact);
+    return NextResponse.json({ responses });
 
   } catch (error) {
     console.error("💥 Error en GET /api/startups/[id]/impact:", error);
     return NextResponse.json(
-      { 
-        error: "Error interno del servidor",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     );
   }
 }
 
-export async function PUT(
+export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log("🔍 PUT /api/startups/[id]/impact iniciado");
+    console.log("🔐 POST Startup Impact - Iniciando...");
     
+    // Verificar sesión
+    const session = await auth();
+    if (!session?.user?.email) {
+      console.log("❌ POST Startup Impact - No autorizado - Sin sesión");
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const { id: startupId } = await params;
     const body = await request.json();
+    const { responses } = body;
 
-    console.log("📋 Startup ID:", startupId);
-    console.log("📝 Datos recibidos:", body);
+    console.log("🔍 POST Startup Impact - Guardando respuestas para startup:", startupId);
 
-    // Verificar autenticación (por ahora usamos el usuario de prueba)
-    const user = await PrismaRepository.getUserByEmail('admin@test.com');
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: "Usuario no autorizado" },
-        { status: 401 }
-      );
+    // Buscar usuario por email
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, dni: true }
+    });
+
+    if (!user || !user.dni) {
+      console.log("❌ POST Startup Impact - Usuario no encontrado o sin DNI");
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
-    // Verificar que la startup existe
-    const startup = await PrismaRepository.getStartupById(startupId);
-    
-    if (!startup) {
-      return NextResponse.json(
-        { error: "Startup no encontrada" },
-        { status: 404 }
-      );
+    // Verificar que el usuario es miembro de la startup
+    const isMember = await prisma.member.findUnique({
+      where: {
+        dni_startupId: {
+          dni: user.dni,
+          startupId: startupId
+        }
+      }
+    });
+
+    if (!isMember) {
+      console.log("❌ POST Startup Impact - Usuario no autorizado para esta startup");
+      return NextResponse.json({ error: 'No autorizado para esta startup' }, { status: 403 });
     }
 
-    console.log("✅ Startup encontrada:", startup.nombre);
+    // Guardar o actualizar respuestas
+    const savedResponses = [];
+    
+    for (const response of responses) {
+      const { criterio, pregunta, respuesta } = response;
+      
+      const savedResponse = await prisma.impactResponse.upsert({
+        where: {
+          startupId_criterio_pregunta: {
+            startupId,
+            criterio,
+            pregunta
+          }
+        },
+        update: {
+          respuesta,
+          updatedAt: new Date()
+        },
+        create: {
+          startupId,
+          criterio,
+          pregunta,
+          respuesta,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+      
+      savedResponses.push(savedResponse);
+    }
 
-    // Actualizar impacto usando PrismaRepository
-    const updatedImpact = {
-      startupId: startup.id,
-      ...body,
-      updatedAt: new Date()
-    };
+    console.log("✅ POST Startup Impact - Respuestas guardadas:", savedResponses.length);
 
-    console.log("✅ Impacto actualizado en la base de datos");
-
-    return NextResponse.json({
-      success: true,
-      message: "Impacto actualizado exitosamente",
-      impact: updatedImpact
+    return NextResponse.json({ 
+      message: 'Respuestas guardadas exitosamente',
+      responses: savedResponses 
     });
 
   } catch (error) {
-    console.error("💥 Error en PUT /api/startups/[id]/impact:", error);
+    console.error("💥 Error en POST /api/startups/[id]/impact:", error);
     return NextResponse.json(
-      { 
-        error: "Error interno del servidor",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     );
   }

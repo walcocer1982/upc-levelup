@@ -1,25 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaRepository } from '@/data/database/repository-prisma';
+import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 Obteniendo todas las convocatorias...');
+    console.log("🔐 GET Convocatorias - Iniciando...");
     
-    // Obtener todas las convocatorias desde la base de datos real
-    const convocatorias = await PrismaRepository.getConvocatorias();
-    
-    console.log(`✅ Encontradas ${convocatorias.length} convocatorias`);
-    convocatorias.forEach(conv => {
-      console.log(`   - ID: ${conv.id}`);
-      console.log(`   - Título: ${conv.titulo}`);
-      console.log(`   - Estado: ${conv.estado}`);
+    // Verificar sesión
+    const session = await auth();
+    if (!session?.user?.email) {
+      console.log("❌ GET Convocatorias - No autorizado - Sin sesión");
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    // Obtener todas las convocatorias (usando Application en lugar de Convocatoria)
+    const convocatorias = await prisma.application.findMany({
+      select: {
+        id: true,
+        tipo: true,
+        fechaInicio: true,
+        fechaFin: true,
+        creadoPorId: true,
+        creadoPor: {
+          select: {
+            nombres: true,
+            apellidos: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        fechaInicio: 'desc'
+      }
     });
 
-    return NextResponse.json(convocatorias);
+    // Formatear convocatorias para mantener compatibilidad con el frontend
+    const formattedConvocatorias = convocatorias.map(conv => ({
+      id: conv.id,
+      titulo: `${conv.tipo} ${new Date(conv.fechaInicio).getFullYear()}`,
+      descripcion: `Convocatoria ${conv.tipo} para el año ${new Date(conv.fechaInicio).getFullYear()}`,
+      fechaInicio: conv.fechaInicio,
+      fechaFin: conv.fechaFin,
+      estado: 'ACTIVA', // Por defecto activa
+      createdAt: conv.fechaInicio // Usar fechaInicio como createdAt
+    }));
+
+    console.log("✅ GET Convocatorias - Convocatorias encontradas:", formattedConvocatorias.length);
+
+    return NextResponse.json({
+      success: true,
+      convocatorias: formattedConvocatorias
+    });
+
   } catch (error) {
-    console.error('❌ Error obteniendo convocatorias:', error);
+    console.error("💥 Error en GET /api/convocatorias:", error);
     return NextResponse.json(
-      { error: 'Error al obtener convocatorias' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     );
   }

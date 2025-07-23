@@ -39,9 +39,9 @@ export const MOCK_CONFIG = {
   
   // Configuración de evaluación IA
   AI_EVALUATION_ENABLED: true,
-  AI_MODEL: 'gpt-4o-mini',
-  AI_MAX_TOKENS: 2000,
-  AI_TEMPERATURE: 0.3,
+  AI_MODEL: 'gpt-3.5-turbo',
+  AI_MAX_TOKENS: 1500,
+  AI_TEMPERATURE: 0.2,
   
   // Configuración de almacenamiento
   STORAGE_TYPE: 'MEMORY', // MEMORY, LOCAL_STORAGE, INDEXED_DB

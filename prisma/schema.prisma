@@ -62,6 +62,7 @@ model Startup {
   postulaciones    Applicant[]
   applicationForms ApplicationForm[]
   comunicaciones   Comunicacion[]
+  impactResponses  ImpactResponse[]
   impact           Impact?
   members          Member[]
   metrics          Metrics?
@@ -95,6 +96,22 @@ model Impact {
 
   @@index([startupId])
   @@map("impacts")
+}
+
+model ImpactResponse {
+  id        String   @id @default(cuid())
+  startupId String
+  criterio  String
+  pregunta  Int
+  respuesta String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  startup   Startup  @relation(fields: [startupId], references: [id], onDelete: Cascade)
+
+  @@unique([startupId, criterio, pregunta])
+  @@index([startupId])
+  @@index([criterio])
+  @@map("impact_responses")
 }
 
 model Metrics {

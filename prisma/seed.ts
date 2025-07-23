@@ -23,7 +23,28 @@ async function main() {
   });
   console.log('✅ Usuario admin creado:', adminUser.id);
 
-  // 2. Crear una convocatoria de prueba
+  // 2. Crear usuario regular de prueba
+  console.log('👤 Creando usuario regular de prueba...');
+  const regularUser = await prisma.user.upsert({
+    where: { email: 'walther.alcocer@cetemin.edu.pe' },
+    update: {},
+    create: {
+      email: 'walther.alcocer@cetemin.edu.pe',
+      nombres: 'Walther',
+      apellidos: 'Alcocer',
+      dni: '87654321',
+      telefono: '999777666',
+      correoLaureate: 'walther.alcocer@upc.edu.pe',
+      linkedin: 'https://linkedin.com/in/walther-alcocer-fundador',
+      biografia: 'Emprendedor tecnológico con experiencia en desarrollo de software y gestión de startups',
+      role: 'usuario',
+      haAceptadoPolitica: true,
+      isRegistered: true
+    }
+  });
+  console.log('✅ Usuario regular creado:', regularUser.id);
+
+  // 3. Crear una convocatoria de prueba
   console.log('📋 Creando convocatoria de prueba...');
   const convocatoria = await prisma.convocatoria.upsert({
     where: { id: 'conv-test-001' },
@@ -47,7 +68,7 @@ async function main() {
   });
   console.log('✅ Convocatoria creada:', convocatoria.id);
 
-  // 3. Crear una startup de prueba
+  // 4. Crear una startup de prueba
   console.log('🚀 Creando startup de prueba...');
   const startup = await prisma.startup.upsert({
     where: { id: 'startup-test-001' },
@@ -68,7 +89,7 @@ async function main() {
   });
   console.log('✅ Startup creada:', startup.id);
 
-  // 4. Crear una aplicación (convocatoria) - AHORA CON EL USUARIO EXISTENTE
+  // 5. Crear una aplicación (convocatoria) - AHORA CON EL USUARIO EXISTENTE
   console.log('📝 Creando aplicación de prueba...');
   const application = await prisma.application.upsert({
     where: { id: 'app-test-001' },
@@ -83,7 +104,7 @@ async function main() {
   });
   console.log('✅ Aplicación creada:', application.id);
 
-  // 5. Crear un applicant (postulación)
+  // 6. Crear un applicant (postulación)
   console.log('📋 Creando postulación de prueba...');
   const applicant = await prisma.applicant.upsert({
     where: { 
@@ -106,7 +127,7 @@ async function main() {
   });
   console.log('✅ Postulación creada:', applicant.id);
 
-  // 6. Crear respuestas de formulario de prueba
+  // 7. Crear respuestas de formulario de prueba
   console.log('📝 Creando respuestas de formulario...');
   const respuestas = [
     {
@@ -191,6 +212,7 @@ async function main() {
   console.log('🎉 Seed completado exitosamente!');
   console.log('📊 Datos creados:');
   console.log('   - Usuario Admin:', adminUser.id);
+  console.log('   - Usuario Regular:', regularUser.id);
   console.log('   - Convocatoria:', convocatoria.id);
   console.log('   - Startup:', startup.id);
   console.log('   - Postulación:', applicant.id);

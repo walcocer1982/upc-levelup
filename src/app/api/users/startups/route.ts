@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/auth';
+import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
@@ -8,7 +7,7 @@ export async function GET(request: NextRequest) {
     console.log("🔐 GET User Startups - Iniciando...");
     
     // Verificar sesión
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) {
       console.log("❌ GET User Startups - No autorizado - Sin sesión");
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -22,12 +21,18 @@ export async function GET(request: NextRequest) {
       select: { id: true, dni: true, nombres: true, apellidos: true }
     });
 
-    if (!user || !user.dni) {
-      console.log("❌ GET User Startups - Usuario no encontrado o sin DNI");
+    if (!user) {
+      console.log("❌ GET User Startups - Usuario no encontrado");
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
-    console.log("🔍 GET User Startups - Buscando startups para DNI:", user.dni);
+    console.log("🔍 GET User Startups - Usuario encontrado:", session.user.email, "DNI:", user.dni || "undefined");
+
+    // Si el usuario no tiene DNI, retornar lista vacía
+    if (!user.dni) {
+      console.log("⚠️ GET User Startups - Usuario sin DNI, retornando lista vacía");
+      return NextResponse.json({ startups: [] });
+    }
 
     // Buscar startups donde el usuario es miembro (usando dni)
     const userStartups = await prisma.member.findMany({
@@ -50,24 +55,47 @@ export async function GET(request: NextRequest) {
 
     console.log("✅ GET User Startups - Startups encontradas:", userStartups.length);
 
-    // Formatear respuesta
-    const startups = userStartups.map(member => ({
-      id: member.startup.id,
-      nombre: member.startup.nombre,
-      categoria: member.startup.categoria,
-      etapa: member.startup.etapa,
-      descripcion: member.startup.descripcion,
-      fechaFundacion: member.startup.fechaFundacion,
-      paginaWeb: member.startup.paginaWeb,
-      videoPitchUrl: member.startup.videoPitchUrl,
-      rol: member.rol,
-      aceptado: member.aceptado,
-      memberId: member.id
-    }));
+    // Verificar el estado de impacto para cada startup
+    const startupsWithImpact = await Promise.all(
+      userStartups.map(async (member) => {
+        // Obtener respuestas de impacto para esta startup
+        const impactResponses = await prisma.impactResponse.findMany({
+          where: { startupId: member.startup.id }
+        });
 
-    console.log("📋 GET User Startups - Lista formateada:", startups.map(s => ({ id: s.id, nombre: s.nombre })));
+        // Verificar si el impacto está completo (16 respuestas)
+        const impactoCompleto = impactResponses.length >= 16;
+        const respuestasCompletadas = impactResponses.length;
+        const totalRespuestas = 16;
 
-    return NextResponse.json({ startups });
+        return {
+          id: member.startup.id,
+          nombre: member.startup.nombre,
+          categoria: member.startup.categoria,
+          etapa: member.startup.etapa,
+          descripcion: member.startup.descripcion,
+          fechaFundacion: member.startup.fechaFundacion,
+          paginaWeb: member.startup.paginaWeb,
+          videoPitchUrl: member.startup.videoPitchUrl,
+          rol: member.rol,
+          aceptado: member.aceptado,
+          memberId: member.id,
+          // Información de impacto
+          impactoCompleto,
+          respuestasCompletadas,
+          totalRespuestas
+        };
+      })
+    );
+
+    console.log("📋 GET User Startups - Lista formateada con impacto:", startupsWithImpact.map(s => ({ 
+      id: s.id, 
+      nombre: s.nombre, 
+      impactoCompleto: s.impactoCompleto,
+      respuestasCompletadas: s.respuestasCompletadas 
+    })));
+
+    return NextResponse.json({ startups: startupsWithImpact });
 
   } catch (error) {
     console.error("💥 Error en GET /api/users/startups:", error);
@@ -83,7 +111,7 @@ export async function POST(request: NextRequest) {
     console.log("🔐 POST User Startups - Iniciando...");
     
     // Verificar sesión
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) {
       console.log("❌ POST User Startups - No autorizado - Sin sesión");
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });

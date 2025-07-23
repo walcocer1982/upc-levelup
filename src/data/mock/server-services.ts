@@ -1,3 +1,6 @@
+// Servicios de IA que solo se ejecutan en el servidor
+// Este archivo debe importarse solo en archivos del servidor (API routes)
+
 import { Repository } from './repository';
 import { 
   EvaluacionIA, 
@@ -53,7 +56,7 @@ export class EvaluacionService {
         id: `eval-${Date.now()}`,
         postulacionId,
         estado: EvaluacionStatus.COMPLETADA,
-        modelVersion: 'gpt-4-turbo-preview',
+        modelVersion: 'gpt-3.5-turbo',
         confianza: evaluacionCompleta.confianza,
         criteriosEvaluados: evaluacionCompleta.criteriosEvaluados.map(ec => ({
           id: `crit-eval-${Date.now()}-${ec.categoria}`,
@@ -105,37 +108,45 @@ export class EvaluacionService {
     respuestas: Record<string, string>
   ): Promise<CriterioEvaluado> {
     try {
-      const evaluacion = await Repository.getEvaluacionIA(evaluacionId);
+      // Obtener evaluación existente
+      const evaluacion = await Repository.getEvaluacionIAById(evaluacionId);
       if (!evaluacion) {
         throw new Error('Evaluación no encontrada');
       }
 
-      // Esta función está diseñada para evaluar criterios individuales
-      // Por ahora, retornamos un criterio evaluado por defecto
-      const criterioEvaluadoCompleto: CriterioEvaluado = {
+      // Convertir respuestas al formato del evaluador
+      const respuestasEvaluacion = Object.entries(respuestas).map(([id, respuesta]) => ({
+        id,
+        pregunta: `Pregunta ${id}`,
+        respuesta,
+        categoria: CategoriaEvaluacion.COMPLEJIDAD, // Por defecto
+        peso: 1,
+        orden: parseInt(id)
+      }));
+
+      // Evaluar criterio específico
+      const evaluacionCriterio = await ServerAIServices.evaluarCategoria(
+        CategoriaEvaluacion.COMPLEJIDAD,
+        respuestasEvaluacion
+      );
+
+      // Crear criterio evaluado
+      const criterioEvaluado: CriterioEvaluado = {
         id: `crit-eval-${Date.now()}`,
         evaluacionId,
         criterioId,
-        categoria: CategoriaEvaluacion.COMPLEJIDAD,
-        puntajeOriginal: 2,
-        puntajeNormalizado: 50,
-        justificacion: 'Evaluación de criterio individual no implementada completamente',
-        recomendaciones: 'Se requiere evaluación completa de la startup',
-        confianza: 0.5,
+        categoria: evaluacionCriterio.criteriosEvaluados[0]?.categoria || CategoriaEvaluacion.COMPLEJIDAD,
+        puntajeOriginal: evaluacionCriterio.criteriosEvaluados[0]?.nivel || 2,
+        puntajeNormalizado: evaluacionCriterio.criteriosEvaluados[0]?.puntuacion || 50,
+        justificacion: evaluacionCriterio.criteriosEvaluados[0]?.justificacion || 'Evaluación automática',
+        recomendaciones: evaluacionCriterio.criteriosEvaluados[0]?.recomendaciones || '',
+        confianza: evaluacionCriterio.criteriosEvaluados[0]?.confianza || 0.5,
         createdAt: new Date(),
         updatedAt: new Date(),
         version: 1
       };
 
-      // Actualizar evaluación
-      evaluacion.criteriosEvaluados.push(criterioEvaluadoCompleto);
-      evaluacion.puntajeTotal = this.calcularPuntajeTotal(evaluacion.criteriosEvaluados);
-      evaluacion.confianza = this.calcularConfianzaPromedio(evaluacion.criteriosEvaluados);
-      evaluacion.updatedAt = new Date();
-
-      await Repository.saveEvaluacionIA(evaluacion);
-
-      return criterioEvaluadoCompleto;
+      return criterioEvaluado;
 
     } catch (error) {
       console.error('Error evaluando criterio:', error);
@@ -155,54 +166,75 @@ export class EvaluacionService {
     decisionFinal: 'APROBADA' | 'RECHAZADA' | 'REQUIERE_REVISION'
   ): Promise<Supervision> {
     try {
-      const evaluacion = await Repository.getEvaluacionIA(evaluacionId);
+      // Obtener evaluación existente
+      const evaluacion = await Repository.getEvaluacionIAById(evaluacionId);
       if (!evaluacion) {
         throw new Error('Evaluación no encontrada');
       }
 
+      // Aplicar ajustes a los criterios
+      const criteriosActualizados = evaluacion.criteriosEvaluados.map(criterio => {
+        const ajuste = ajustes.find(a => a.criterioId === criterio.criterioId);
+        if (ajuste) {
+          return {
+            ...criterio,
+            puntajeOriginal: ajuste.puntajeAjustado,
+            puntajeNormalizado: ajuste.puntajeAjustado,
+            justificacion: ajuste.justificacion,
+            updatedAt: new Date()
+          };
+        }
+        return criterio;
+      });
+
+      // Calcular nuevos puntajes
+      const puntajeTotal = this.calcularPuntajeTotal(criteriosActualizados);
+      const confianza = this.calcularConfianzaPromedio(criteriosActualizados);
+
+      // Actualizar evaluación
+      evaluacion.criteriosEvaluados = criteriosActualizados;
+      evaluacion.puntajeTotal = puntajeTotal;
+      evaluacion.confianza = confianza;
+      evaluacion.updatedAt = new Date();
+
+      // Guardar evaluación actualizada
+      await Repository.saveEvaluacionIA(evaluacion);
+
+      // Crear supervisión
       const supervision: Supervision = {
         id: `super-${Date.now()}`,
         evaluacionId,
         supervisorId,
-        ajustes: ajustes.map(ajuste => ({
-          criterioId: ajuste.criterioId,
-          puntajeOriginal: 0, // Se calculará
-          puntajeAjustado: ajuste.puntajeAjustado,
-          justificacion: ajuste.justificacion
-        })),
+        ajustes,
         comentarios,
         decisionFinal,
+        puntajeTotal,
+        confianza,
         createdAt: new Date(),
         updatedAt: new Date(),
         version: 1
       };
 
-      // Actualizar evaluación con ajustes
-      evaluacion.estado = EvaluacionStatus.REQUIERE_REVISION;
-      evaluacion.updatedAt = new Date();
-
-      await Repository.saveEvaluacionIA(evaluacion);
+      // Guardar supervisión
       await Repository.saveSupervision(supervision);
 
       return supervision;
 
     } catch (error) {
-      console.error('Error en supervisión:', error);
+      console.error('Error supervisando evaluación:', error);
       throw new Error('Error al supervisar la evaluación');
     }
   }
 
   private calcularPuntajeTotal(criteriosEvaluados: CriterioEvaluado[]): number {
     if (criteriosEvaluados.length === 0) return 0;
-    const puntajes = criteriosEvaluados.map(c => c.puntajeNormalizado);
-    return puntajes.reduce((sum, puntaje) => sum + puntaje, 0) / puntajes.length;
+    const suma = criteriosEvaluados.reduce((total, criterio) => total + criterio.puntajeNormalizado, 0);
+    return Math.round(suma / criteriosEvaluados.length);
   }
 
   private calcularConfianzaPromedio(criteriosEvaluados: CriterioEvaluado[]): number {
     if (criteriosEvaluados.length === 0) return 0;
-    const confianzas = criteriosEvaluados.map(c => c.confianza);
-    return confianzas.reduce((sum, confianza) => sum + confianza, 0) / confianzas.length;
+    const suma = criteriosEvaluados.reduce((total, criterio) => total + criterio.confianza, 0);
+    return Math.round((suma / criteriosEvaluados.length) * 100) / 100;
   }
-}
-
-export const evaluacionService = EvaluacionService.getInstance(); 
+} 

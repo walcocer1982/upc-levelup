@@ -130,7 +130,30 @@ export default function RespuestasPage() {
     };
 
     respuestas.forEach(respuesta => {
-      agrupadas[respuesta.categoria].push(respuesta);
+      // Normalizar la categoría a mayúsculas para comparar con el enum
+      const categoriaNormalizada = respuesta.categoria?.toUpperCase();
+      
+      // Mapear categorías de la base de datos a las del enum
+      let categoriaEnum: CategoriaEvaluacion;
+      switch (categoriaNormalizada) {
+        case 'COMPLEJIDAD':
+          categoriaEnum = CategoriaEvaluacion.COMPLEJIDAD;
+          break;
+        case 'MERCADO':
+          categoriaEnum = CategoriaEvaluacion.MERCADO;
+          break;
+        case 'ESCALABILIDAD':
+          categoriaEnum = CategoriaEvaluacion.ESCALABILIDAD;
+          break;
+        case 'EQUIPO':
+          categoriaEnum = CategoriaEvaluacion.EQUIPO;
+          break;
+        default:
+          console.warn(`Categoría no reconocida: ${respuesta.categoria}, agregando a COMPLEJIDAD`);
+          categoriaEnum = CategoriaEvaluacion.COMPLEJIDAD;
+      }
+      
+      agrupadas[categoriaEnum].push(respuesta);
     });
 
     return agrupadas;

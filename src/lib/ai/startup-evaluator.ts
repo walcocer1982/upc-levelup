@@ -71,7 +71,7 @@ export class StartupEvaluator {
       const confianza = this.calcularConfianzaPromedio(evaluacionesCriterios);
 
       // Generar análisis general
-      const analisis = await this.generarAnalisisGeneral(evaluacionesCriterios);
+      const analisis = await this.generarAnalisisGeneral(evaluacionesCriterios, respuestas);
 
       // Determinar decisión final
       const decisionFinal = this.determinarDecisionFinal(puntajeTotal, evaluacionesCriterios);
@@ -143,7 +143,7 @@ export class StartupEvaluator {
       });
 
       const openaiPromise = openai.chat.completions.create({
-        model: 'gpt-4o-mini', // Modelo ultra rápido y económico
+        model: 'gpt-3.5-turbo', // Modelo ultra rápido y económico
         messages: [
           {
             role: 'system',
@@ -154,8 +154,8 @@ export class StartupEvaluator {
             content: prompt
           }
         ],
-        temperature: 0.3,
-        max_tokens: 500
+        temperature: 0.2,
+        max_tokens: 400
       });
 
       // Ejecutar con timeout
@@ -280,43 +280,72 @@ RESPONDE EN JSON:
   }
 
   private async generarAnalisisGeneral(
-    evaluaciones: EvaluacionCriterio[]
+    evaluaciones: EvaluacionCriterio[],
+    respuestasOriginales: RespuestaEvaluacion[]
   ): Promise<{
     fortalezas: string[];
     debilidades: string[];
     observaciones: string[];
     recomendaciones: string[];
   }> {
+    // Agrupar respuestas por categoría para contexto
+    const respuestasPorCategoria = this.agruparRespuestasPorCategoria(respuestasOriginales);
+    
     const contexto = `
+EVALUACIÓN DE STARTUP
+
 Evaluaciones por criterio:
 ${evaluaciones.map(e => `${e.categoria}: Nivel ${e.nivel}, Puntuación ${e.puntuacion}`).join('\n')}
 
 Puntaje total: ${this.calcularPuntajeTotal(evaluaciones)}/100
+
+RESPUESTAS ESPECÍFICAS POR CATEGORÍA:
+
+COMPLEJIDAD:
+${respuestasPorCategoria.COMPLEJIDAD?.map(r => `- ${r.pregunta}: ${r.respuesta}`).join('\n') || 'No hay respuestas'}
+
+MERCADO:
+${respuestasPorCategoria.MERCADO?.map(r => `- ${r.pregunta}: ${r.respuesta}`).join('\n') || 'No hay respuestas'}
+
+ESCALABILIDAD:
+${respuestasPorCategoria.ESCALABILIDAD?.map(r => `- ${r.pregunta}: ${r.respuesta}`).join('\n') || 'No hay respuestas'}
+
+EQUIPO:
+${respuestasPorCategoria.EQUIPO?.map(r => `- ${r.pregunta}: ${r.respuesta}`).join('\n') || 'No hay respuestas'}
 `;
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini', // Modelo ultra rápido y económico
+        model: 'gpt-3.5-turbo', // Modelo ultra rápido y económico
         messages: [
           {
             role: 'system',
-            content: `Eres un evaluador de startups. Analiza y genera análisis conciso.`
+            content: `Eres un evaluador experto de startups. Analiza las respuestas específicas y genera un análisis detallado basado en el contenido real de las respuestas. Identifica fortalezas y debilidades específicas mencionadas en las respuestas, no uses texto genérico.`
           },
           {
             role: 'user',
             content: `${contexto}
 
-Genera análisis JSON:
+Basándote en las respuestas específicas de la startup, genera ÚNICAMENTE un JSON válido con el siguiente formato exacto:
+
 {
-  "fortalezas": ["Fortaleza 1"],
-  "debilidades": ["Debilidad 1"],
-  "observaciones": ["Observación 1"],
-  "recomendaciones": ["Recomendación 1"]
-}`
+  "fortalezas": ["Fortaleza específica basada en las respuestas con detalles cuantitativos y cualitativos"],
+  "debilidades": ["Debilidad específica basada en las respuestas"],
+  "observaciones": ["Observación específica sobre el proyecto"],
+  "recomendaciones": ["Recomendación específica para mejorar"]
+}
+
+REGLAS:
+1. Responde ÚNICAMENTE con el JSON, sin texto adicional
+2. Usa información específica de las respuestas, no texto genérico
+3. Asegúrate de que el JSON sea válido y completo
+4. No incluyas explicaciones fuera del JSON
+5. Las fortalezas deben ser descriptivas e incluir métricas específicas (números, porcentajes, ratios)
+6. Cada fortaleza debe explicar el impacto y beneficio para la startup`
           }
         ],
         temperature: 0.3,
-        max_tokens: 400
+        max_tokens: 500
       });
 
       const analisisTexto = response.choices[0]?.message?.content;
@@ -324,12 +353,35 @@ Genera análisis JSON:
         throw new Error('No se recibió análisis de la IA');
       }
 
-      const jsonMatch = analisisTexto.match(/\{[\s\S]*\}/);
+      console.log('🔍 Respuesta de la IA:', analisisTexto.substring(0, 200) + '...');
+
+      // Intentar extraer JSON de la respuesta
+      let jsonMatch = analisisTexto.match(/\{[\s\S]*\}/);
+      
       if (!jsonMatch) {
-        throw new Error('No se encontró JSON en el análisis');
+        // Si no hay JSON, intentar crear uno básico basado en el contexto
+        console.log('⚠️ No se encontró JSON, creando análisis básico...');
+        return {
+          fortalezas: ['Análisis basado en respuestas específicas'],
+          debilidades: ['Se requiere revisión manual'],
+          observaciones: ['Evaluación en proceso'],
+          recomendaciones: ['Revisar manualmente los criterios']
+        };
       }
 
-      return JSON.parse(jsonMatch[0]);
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        // Validar que tenga la estructura correcta
+        if (!parsed.fortalezas || !parsed.debilidades || !parsed.observaciones || !parsed.recomendaciones) {
+          throw new Error('JSON incompleto');
+        }
+        
+        return parsed;
+      } catch (parseError) {
+        console.error('❌ Error parseando JSON:', parseError);
+        throw new Error('JSON inválido en la respuesta de la IA');
+      }
 
     } catch (error) {
       console.error('Error generando análisis general:', error);
@@ -369,7 +421,7 @@ Evaluaciones: ${evaluaciones.map(e => `${e.categoria}: Nivel ${e.nivel}`).join('
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini', // Modelo ultra rápido y económico
+        model: 'gpt-3.5-turbo', // Modelo ultra rápido y económico
         messages: [
           {
             role: 'system',
@@ -382,8 +434,8 @@ Evaluaciones: ${evaluaciones.map(e => `${e.categoria}: Nivel ${e.nivel}`).join('
 Justifica brevemente la decisión ${decision}.`
           }
         ],
-        temperature: 0.3,
-        max_tokens: 200
+        temperature: 0.2,
+        max_tokens: 150
       });
 
       return response.choices[0]?.message?.content || 

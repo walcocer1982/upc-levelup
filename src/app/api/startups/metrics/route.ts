@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/auth';
+import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
@@ -8,7 +7,7 @@ export async function GET(request: NextRequest) {
     console.log("🔐 GET Startup Metrics - Iniciando...");
     
     // Verificar sesión
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) {
       console.log("❌ GET Startup Metrics - No autorizado - Sin sesión");
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -74,7 +73,7 @@ export async function POST(request: NextRequest) {
     console.log("🔐 POST Startup Metrics - Iniciando...");
     
     // Verificar sesión
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) {
       console.log("❌ POST Startup Metrics - No autorizado - Sin sesión");
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -156,7 +155,7 @@ export async function PUT(request: NextRequest) {
     console.log("🔐 PUT Startup Metrics - Iniciando...");
     
     // Verificar sesión
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) {
       console.log("❌ PUT Startup Metrics - No autorizado - Sin sesión");
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });

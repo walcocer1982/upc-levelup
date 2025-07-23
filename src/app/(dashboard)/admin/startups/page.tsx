@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Eye, Edit, Trash2, Filter } from "lucide-react";
+import { Search, Eye, Filter } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getMockData } from "@/data/mock";
-
 // Tipos para las startups
 interface Startup {
   id: string;
@@ -25,44 +23,36 @@ interface Startup {
   puntuacionPromedio: number;
 }
 
-// Usar datos mock centralizados
-const mockStartups: Startup[] = getMockData.getAllStartups().map(startup => {
-  const founder = getMockData.getUserById(startup.founderId);
-  const postulaciones = getMockData.getPostulacionesByStartup(startup.id);
-  const evaluaciones = postulaciones.flatMap(post => 
-    getMockData.getEvaluacionesByPostulacion(post.id)
-  );
-  
-  // Calcular puntuación promedio
-  const puntuaciones = evaluaciones.map(evaluacion => evaluacion.puntuacionTotal);
-  const puntuacionPromedio = puntuaciones.length > 0 
-    ? Math.round(puntuaciones.reduce((a, b) => a + b, 0) / puntuaciones.length)
-    : 0;
-
-  return {
-    id: startup.id,
-    nombre: startup.nombre,
-    descripcion: startup.descripcion,
-    categoria: startup.categoria === "HealthTech" ? "Tech" : 
-               startup.categoria === "Educación" ? "EdTech" : 
-               startup.categoria === "FinTech" ? "FinTech" : "Tech",
-    estado: startup.estado,
-    fechaCreacion: startup.fechaFundacion.toISOString().split('T')[0],
-    propietario: {
-      nombre: founder?.nombres + " " + founder?.apellidos || "Usuario",
-      email: founder?.email || "usuario@ejemplo.com"
-    },
-    evaluaciones: evaluaciones.length,
-    puntuacionPromedio: puntuacionPromedio
-  };
-});
-
 export default function AdminStartupsPage() {
-  const [startups, setStartups] = useState<Startup[]>(mockStartups);
-  const [filteredStartups, setFilteredStartups] = useState<Startup[]>(mockStartups);
+  const [startups, setStartups] = useState<Startup[]>([]);
+  const [filteredStartups, setFilteredStartups] = useState<Startup[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("todas");
   const [statusFilter, setStatusFilter] = useState("todas");
+  const [loading, setLoading] = useState(true);
+
+  // Cargar startups desde la base de datos
+  useEffect(() => {
+    const loadStartups = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/admin/startups');
+        
+        if (response.ok) {
+          const data = await response.json();
+          setStartups(data.startups || []);
+        } else {
+          console.error('Error cargando startups:', response.status);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStartups();
+  }, []);
 
   // Filtrar startups
   useEffect(() => {
@@ -109,20 +99,38 @@ export default function AdminStartupsPage() {
     return "text-red-600";
   };
 
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Ver Startups</h1>
+            <p className="text-muted-foreground">
+              Visualiza todas las startups registradas en el sistema (solo lectura)
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2 text-muted-foreground">Cargando startups...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Gestionar Startups</h1>
+          <h1 className="text-3xl font-bold">Ver Startups</h1>
           <p className="text-muted-foreground">
-            Administra todas las startups registradas en el sistema
+            Visualiza todas las startups registradas en el sistema (solo lectura)
           </p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus size={16} />
-          Nueva Startup
-        </Button>
+        <div className="text-sm text-muted-foreground">
+          Los usuarios crean sus propias startups
+        </div>
       </div>
 
       {/* Filtros */}
@@ -260,14 +268,8 @@ export default function AdminStartupsPage() {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" title="Ver detalles">
                     <Eye size={16} />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Edit size={16} />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                    <Trash2 size={16} />
                   </Button>
                 </div>
               </div>

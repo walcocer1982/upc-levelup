@@ -49,7 +49,7 @@ export default function UserApplicationsPage() {
         
         if (response.ok) {
           const data = await response.json();
-          setApplications(data.applications || []);
+          setApplications(data.aplicaciones || []);
         } else {
           console.error('Error cargando aplicaciones:', response.status);
           toast.error('Error al cargar tus aplicaciones');
@@ -279,13 +279,13 @@ export default function UserApplicationsPage() {
                         Ver Startup
                       </Button>
                     </Link>
-                    <Link href={`/convocatorias/${application.convocatoria.id}`} className="flex-1">
+                    <Link href={`/user/convocatorias/${application.convocatoria.id}`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">
                         Ver Convocatoria
                       </Button>
                     </Link>
                     {application.evaluaciones && application.evaluaciones.length > 0 && (
-                      <Link href={`/evaluaciones/${application.evaluaciones[0].id}`} className="flex-1">
+                      <Link href={`/user/evaluaciones/${application.evaluaciones[0].id}`} className="flex-1">
                         <Button size="sm" className="w-full">
                           Ver Evaluación
                         </Button>

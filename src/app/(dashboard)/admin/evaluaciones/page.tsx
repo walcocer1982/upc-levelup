@@ -20,8 +20,20 @@ import {
   AlertCircle,
   FileText
 } from "lucide-react";
-import { EvaluacionStatus, PostulacionStatus } from "@/data/mock/types";
-import { StorageStats } from "@/components/ui/storage-stats";
+// Definir enums localmente para evitar imports de mock
+enum EvaluacionStatus {
+  PENDIENTE = 'PENDIENTE',
+  EN_PROCESO = 'EN_PROCESO',
+  COMPLETADA = 'COMPLETADA',
+  REQUIERE_REVISION = 'REQUIERE_REVISION'
+}
+
+enum PostulacionStatus {
+  PENDIENTE = 'PENDIENTE',
+  EN_REVISION = 'EN_REVISION',
+  APROBADA = 'APROBADA',
+  RECHAZADA = 'RECHAZADA'
+}
 
 // Interfaces para la UI
 interface EvaluacionUI {
@@ -31,6 +43,7 @@ interface EvaluacionUI {
   estado: EvaluacionStatus;
   puntajeTotal: number;
   evaluadorId: string;
+  fechaPostulacion: Date;
   fechaEvaluacion?: Date;
   metadata: {
     tiempoEvaluacion: number;
@@ -57,15 +70,16 @@ export default function EvaluacionesPage() {
     aprobadas: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [puntajeFilter, setPuntajeFilter] = useState("todos");
 
-  // Cargar evaluaciones
-  useEffect(() => {
+  // Función para cargar evaluaciones
     const cargarEvaluaciones = async () => {
       try {
         setLoading(true);
+      setError(null);
         
         // Obtener evaluaciones desde el endpoint API
         const response = await fetch('/api/evaluaciones');
@@ -86,22 +100,27 @@ export default function EvaluacionesPage() {
           const evaluacionesData = data.evaluaciones.map((evaluacion: any) => ({
             ...evaluacion,
             estado: mapearEstado(evaluacion.estado),
-            fechaEvaluacion: new Date(evaluacion.fechaEvaluacion)
+            fechaPostulacion: new Date(evaluacion.fechaPostulacion),
+            fechaEvaluacion: evaluacion.fechaEvaluacion ? new Date(evaluacion.fechaEvaluacion) : undefined
           }));
 
           setEvaluaciones(evaluacionesData);
           setStats(data.estadisticas);
         } else {
           console.error('Error en la respuesta del servidor:', data.error);
+        throw new Error(data.error || 'Error al obtener evaluaciones');
         }
         
       } catch (error) {
         console.error('Error cargando evaluaciones:', error);
+      setError(error instanceof Error ? error.message : 'Error desconocido');
       } finally {
         setLoading(false);
       }
     };
 
+  // Cargar evaluaciones al montar el componente
+  useEffect(() => {
     cargarEvaluaciones();
   }, []);
 
@@ -258,6 +277,30 @@ export default function EvaluacionesPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-red-600 mb-2">Error al cargar evaluaciones</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button 
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                cargarEvaluaciones();
+              }}
+              variant="outline"
+            >
+              Intentar de nuevo
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -329,8 +372,7 @@ export default function EvaluacionesPage() {
         </Card>
       </div>
 
-      {/* Estadísticas de Almacenamiento */}
-      <StorageStats />
+
 
       {/* Filtros */}
       <Card>
@@ -406,7 +448,7 @@ export default function EvaluacionesPage() {
                           {getStatusBadge(evaluacion)}
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-600">
                           <div>
                             <span className="font-medium">Puntuación:</span>
                             <p className={`font-semibold ${getScoreColor(evaluacion.puntajeTotal)}`}>
@@ -418,8 +460,16 @@ export default function EvaluacionesPage() {
                             <p>{evaluacion.evaluadorId}</p>
                           </div>
                           <div>
-                            <span className="font-medium">Fecha:</span>
-                            <p>{evaluacion.fechaEvaluacion ? new Date(evaluacion.fechaEvaluacion).toLocaleDateString() : 'Pendiente'}</p>
+                            <span className="font-medium">Postuló:</span>
+                            <p className="text-blue-600 font-medium">
+                              {evaluacion.fechaPostulacion ? new Date(evaluacion.fechaPostulacion).toLocaleDateString('es-ES') : 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="font-medium">Evaluó:</span>
+                            <p className={`font-medium ${evaluacion.fechaEvaluacion ? 'text-green-600' : 'text-orange-500'}`}>
+                              {evaluacion.fechaEvaluacion ? new Date(evaluacion.fechaEvaluacion).toLocaleDateString('es-ES') : 'Pendiente'}
+                            </p>
                           </div>
                         </div>
                       </div>

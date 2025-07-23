@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { PrismaRepository } from "@/data/database/repository-prisma";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const postulacionId = params.id;
+    const { id } = await params;
+    const postulacionId = id;
     console.log('🔍 Obteniendo respuestas para postulación:', postulacionId);
 
     // Obtener postulación
@@ -27,8 +29,15 @@ export async function GET(
       );
     }
 
-    // Obtener respuestas
-    const respuestasData = await PrismaRepository.getApplicationFormsByStartup(postulacionData.startupId);
+    // Obtener respuestas de impacto (usando la tabla correcta)
+    const respuestasData = await prisma.impactResponse.findMany({
+      where: { startupId: postulacionData.startupId },
+      orderBy: [
+        { criterio: 'asc' },
+        { pregunta: 'asc' }
+      ]
+    });
+
     if (!respuestasData || respuestasData.length === 0) {
       return NextResponse.json(
         { error: 'No se encontraron respuestas' },
@@ -38,6 +47,16 @@ export async function GET(
 
     // Verificar si ya existe una evaluación
     const evaluacionData = await PrismaRepository.getEvaluacionIAByPostulacion(postulacionId);
+
+    // Mapear las respuestas al formato esperado por el frontend
+    const respuestasMapeadas = respuestasData.map(r => ({
+      id: r.id,
+      pregunta: `Pregunta ${r.pregunta} - ${r.criterio}`,
+      respuesta: r.respuesta,
+      categoria: r.criterio,
+      peso: 1,
+      orden: r.pregunta
+    }));
 
     return NextResponse.json({
       success: true,
@@ -49,14 +68,7 @@ export async function GET(
         fechaPostulacion: postulacionData.fecha,
         convocatoriaId: postulacionData.convocatoriaId,
         documentos: [],
-        respuestas: respuestasData.map(r => ({
-          id: r.id,
-          pregunta: r.pregunta,
-          respuesta: r.respuesta,
-          categoria: r.categoria,
-          peso: r.peso,
-          orden: r.orden
-        })),
+        respuestas: respuestasMapeadas,
         createdAt: postulacionData.fecha,
         updatedAt: postulacionData.fecha,
         version: 1
@@ -78,14 +90,7 @@ export async function GET(
         ruc: startupData.ruc,
         origen: startupData.origen
       },
-      respuestas: respuestasData.map(r => ({
-        id: r.id,
-        pregunta: r.pregunta,
-        respuesta: r.respuesta,
-        categoria: r.categoria,
-        peso: r.peso,
-        orden: r.orden
-      })),
+      respuestas: respuestasMapeadas,
       evaluacion: evaluacionData ? {
         id: evaluacionData.id,
         postulacionId: evaluacionData.postulacionId,
